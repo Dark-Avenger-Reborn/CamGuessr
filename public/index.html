@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CAMGUESSR // SURVEILLANCE INTELLIGENCE</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
@@ -195,9 +196,8 @@
       <div class="guess-header">// LOCATION ANALYSIS TERMINAL</div>
 
       <div class="map-area" id="map-area">
-        <svg id="world-svg" viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div class="map-pin" id="map-pin"></div>
-        <div class="map-instructions" id="map-instructions">CLICK TO MARK LOCATION</div>
+        <div id="world-map" class="leaflet-map"></div>
+        <div class="map-instructions" id="map-instructions">LOADING MAP...</div>
       </div>
 
       <div class="clues-section">
@@ -231,7 +231,7 @@
     <div class="result-header" id="result-header">---</div>
 
     <div class="result-map">
-      <svg id="result-svg" viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="result-map" class="leaflet-map"></div>
     </div>
 
     <div id="result-my-stats" class="result-stats">
@@ -293,6 +293,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="js/map.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/game.js"></script>

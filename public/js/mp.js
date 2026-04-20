@@ -213,7 +213,7 @@ const MP = (() => {
     else                  { header.textContent = '[ TARGET MISSED ]'; header.className = 'result-header fail'; }
 
     // Draw map with ALL guesses
-    WorldMap.drawResultMap('result-svg', {
+    WorldMap.drawResultMap('result-map', {
       results: data.results,
       actual: { lat: data.actualCamera.lat, lon: data.actualCamera.lon }
     });

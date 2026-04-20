@@ -307,16 +307,13 @@ body {
   background: radial-gradient(circle at 50% 40%, #0f1a11 0%, #090d09 100%);
   border-bottom: 1px solid var(--border); overflow: hidden; cursor: crosshair; flex-shrink: 0;
 }
-#world-svg { width: 100%; height: 100%; }
-.map-pin {
-  position: absolute; width: 13px; height: 13px; background: var(--green);
-  border-radius: 50%; transform: translate(-50%, -50%);
-  pointer-events: none; box-shadow: 0 0 10px var(--green), 0 0 20px rgba(0,255,65,0.22); display: none;
-}
+.leaflet-map { width: 100%; height: 100%; }
 .map-instructions {
   position: absolute; bottom: 7px; left: 0; right: 0;
   text-align: center; font-size: 9px; color: var(--text-dim); pointer-events: none;
   letter-spacing: 1px;
+  z-index: 500;
+  text-shadow: 0 0 4px rgba(0,0,0,0.9);
 }
 
 .clues-section {
@@ -368,7 +365,28 @@ body {
   max-height: 340px;
   position: relative; overflow: hidden;
 }
-#result-svg { width: 100%; height: 100%; }
+
+/* ── LEAFLET THEME OVERRIDES ── */
+.leaflet-container {
+  background: #090d09;
+  font-family: var(--mono);
+}
+
+.leaflet-control-zoom a {
+  background: var(--bg2) !important;
+  color: var(--green) !important;
+  border-color: var(--border-bright) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(0,0,0,0.65) !important;
+  color: var(--text-dim) !important;
+  font-size: 9px !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--green-dim) !important;
+}
 
 .result-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
 .result-stat { background: var(--bg2); border: 1px solid var(--border); padding: 12px; text-align: center; }

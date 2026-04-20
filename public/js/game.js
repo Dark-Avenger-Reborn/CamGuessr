@@ -22,7 +22,7 @@ const Game = (() => {
     loadInterval: null,
   };
 
-  let hasBoundMapInput = false;
+  let hasInitializedLeafletMap = false;
 
   const FALLBACK_SP_CAMERAS = [
     {
@@ -175,76 +175,21 @@ const Game = (() => {
     }
   }
 
-  function getPointer(e) {
-    if (e.touches && e.touches[0]) {
-      return { clientX: e.touches[0].clientX, clientY: e.touches[0].clientY };
-    }
-    if (e.changedTouches && e.changedTouches[0]) {
-      return { clientX: e.changedTouches[0].clientX, clientY: e.changedTouches[0].clientY };
-    }
-    return { clientX: e.clientX, clientY: e.clientY };
-  }
+  function initGuessMap() {
+    if (hasInitializedLeafletMap) return;
 
-  function updateGuessFromPointer(e) {
-    if (state.submitted) return;
-    const svg = document.getElementById('world-svg');
-    const mapArea = document.getElementById('map-area');
-    if (!svg || !mapArea) return;
+    WorldMap.initGameMap('world-map', ({ lat, lon }) => {
+      if (state.submitted) return;
+      state.guessLat = lat;
+      state.guessLon = lon;
 
-    const { clientX, clientY } = getPointer(e);
-    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return;
-
-    const mapPos = WorldMap.clientToMap(svg, clientX, clientY);
-    const mapRect = mapArea.getBoundingClientRect();
-    const pinX = mapPos.rect.left - mapRect.left + mapPos.relX;
-    const pinY = mapPos.rect.top - mapRect.top + mapPos.relY;
-
-    state.guessLat = mapPos.lat;
-    state.guessLon = mapPos.lon;
-
-    const pin = document.getElementById('map-pin');
-    pin.style.left = `${pinX}px`;
-    pin.style.top = `${pinY}px`;
-    pin.style.display = 'block';
-
-    document.getElementById('selected-coords').innerHTML =
-      `<span>LAT: ${state.guessLat.toFixed(2)}° &nbsp; LON: ${state.guessLon.toFixed(2)}°</span>`;
-    document.getElementById('submit-btn').disabled = false;
-  }
-
-  function bindMapInput() {
-    if (hasBoundMapInput) return;
-    const mapArea = document.getElementById('map-area');
-    const instructions = document.getElementById('map-instructions');
-    const svg = document.getElementById('world-svg');
-    if (!mapArea || !instructions || !svg) return;
-
-    mapArea.style.touchAction = 'none';
-
-    let dragging = false;
-
-    mapArea.addEventListener('pointerdown', (e) => {
-      dragging = true;
-      mapArea.setPointerCapture(e.pointerId);
-      updateGuessFromPointer(e);
+      document.getElementById('selected-coords').innerHTML =
+        `<span>LAT: ${state.guessLat.toFixed(2)}° &nbsp; LON: ${state.guessLon.toFixed(2)}°</span>`;
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('map-instructions').textContent = 'ZOOM/PAN ENABLED • CLICK TO UPDATE GUESS';
     });
 
-    mapArea.addEventListener('pointermove', (e) => {
-      const mapPos = WorldMap.clientToMap(svg, e.clientX, e.clientY);
-      instructions.textContent = `MOVE TO TARGET • ${mapPos.lat.toFixed(1)}°, ${mapPos.lon.toFixed(1)}°`;
-      if (dragging) updateGuessFromPointer(e);
-    });
-
-    mapArea.addEventListener('pointerup', (e) => {
-      dragging = false;
-      mapArea.releasePointerCapture(e.pointerId);
-    });
-
-    mapArea.addEventListener('pointerleave', () => {
-      instructions.textContent = 'CLICK OR DRAG TO MARK LOCATION';
-    });
-
-    hasBoundMapInput = true;
+    hasInitializedLeafletMap = true;
   }
 
   async function startSinglePlayer() {
@@ -261,7 +206,7 @@ const Game = (() => {
     UI.showScreen('game-screen');
     document.getElementById('game-chat-section').style.display = 'none';
     document.getElementById('mp-players-overlay').style.display = 'none';
-    bindMapInput();
+    initGuessMap();
     loadRound();
   }
 
@@ -287,7 +232,6 @@ const Game = (() => {
     document.getElementById('submit-btn').disabled = true;
     document.getElementById('submit-btn').textContent = '▶ TRANSMIT COORDINATES';
     document.getElementById('selected-coords').textContent = 'SELECT LOCATION ON MAP';
-    document.getElementById('map-pin').style.display = 'none';
     document.getElementById('buy-clue-btn').disabled = false;
     document.getElementById('buy-clue-btn').textContent = '⬇ DECRYPT NEXT INTEL [-100 credits]';
 
@@ -300,9 +244,11 @@ const Game = (() => {
       dots.appendChild(dot);
     }
 
-    // Draw map
-    WorldMap.drawGameMap('world-svg');
-    document.getElementById('map-instructions').textContent = 'CLICK OR DRAG TO MARK LOCATION';
+    // Prepare map for a fresh round
+    initGuessMap();
+    WorldMap.clearGameGuess();
+    WorldMap.resetGameMapView();
+    document.getElementById('map-instructions').textContent = 'ZOOM WITH SCROLL • DRAG TO PAN • CLICK TO GUESS';
 
     // Start timer
     startTimer(90);
@@ -366,7 +312,7 @@ const Game = (() => {
   }
 
   function placePin(e) {
-    updateGuessFromPointer(e);
+    // Legacy no-op. Guesses are now placed via Leaflet click events.
   }
 
   function buyClue() {
@@ -432,7 +378,7 @@ const Game = (() => {
     else if (pts >= 500)  { header.textContent = '[ PARTIAL SUCCESS ]'; header.className = 'result-header ok'; }
     else                  { header.textContent = '[ TARGET MISSED ]'; header.className = 'result-header fail'; }
 
-    WorldMap.drawResultMap('result-svg', {
+    WorldMap.drawResultMap('result-map', {
       guess: guessLat !== null ? { lat: guessLat, lon: guessLon } : null,
       actual: { lat: cam.lat, lon: cam.lon }
     });
@@ -516,7 +462,7 @@ const Game = (() => {
     UI.showScreen('game-screen');
     document.getElementById('game-chat-section').style.display = 'flex';
     document.getElementById('game-chat-section').style.flexDirection = 'column';
-    bindMapInput();
+    initGuessMap();
     loadRound(camera);
     // Override timer with server time
     if (state.timerInterval) { clearInterval(state.timerInterval); }
