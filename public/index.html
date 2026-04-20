@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CAMGUESSR // SURVEILLANCE INTELLIGENCE</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="scanline"></div>
+<div class="matrix-scan"></div>
+
+<!-- ══════════════════ BOOT / MENU ══════════════════ -->
+<div id="boot-screen" class="screen active">
+  <div class="logo-block">
+    <pre class="logo-ascii">  ██████╗ █████╗ ███╗   ███╗ ██████╗ ██╗   ██╗███████╗███████╗███████╗
+ ██╔════╝██╔══██╗████╗ ████║██╔════╝ ██║   ██║██╔════╝██╔════╝██╔════╝
+ ██║     ███████║██╔████╔██║██║  ███╗██║   ██║█████╗  ███████╗███████╗
+ ██║     ██╔══██║██║╚██╔╝██║██║   ██║██║   ██║██╔══╝  ╚════██║╚════██║
+ ╚██████╗██║  ██║██║ ╚═╝ ██║╚██████╔╝╚██████╔╝███████╗███████║███████║
+  ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚══════╝</pre>
+    <div class="game-title">CAMGUESSR</div>
+    <div class="game-subtitle">[ GLOBAL SURVEILLANCE INTELLIGENCE NETWORK ]</div>
+  </div>
+
+  <div class="boot-log" id="boot-log"></div>
+
+  <div class="menu-box" id="main-menu" style="display:none;">
+    <button class="menu-btn" onclick="UI.showScreen('sp-setup-screen')">
+      &gt; SINGLE PLAYER MODE
+      <span class="btn-tag">// infiltrate solo — 5 rounds — high score chase</span>
+    </button>
+    <button class="menu-btn" onclick="UI.showScreen('mp-screen')">
+      &gt; MULTIPLAYER MODE
+      <span class="btn-tag">// coordinate with allies — real-time — race to identify</span>
+    </button>
+    <button class="menu-btn" onclick="UI.showHowTo()">
+      &gt; ACCESS INTEL FILE
+      <span class="btn-tag">// mission briefing — rules — scoring protocol</span>
+    </button>
+  </div>
+
+  <div class="ver-tag" id="ver-tag" style="display:none;">CAMGUESSR v2.5.0 // SOCKET.IO ENABLED // NODE COUNT: 47,293</div>
+</div>
+
+<!-- ══════════════════ SP SETUP ══════════════════ -->
+<div id="sp-setup-screen" class="screen">
+  <div class="setup-container">
+    <div class="setup-title">[ SINGLE PLAYER SETUP ]</div>
+    <div class="section-label">// OPERATIVE CALLSIGN</div>
+    <input class="mp-input" id="sp-name-input" placeholder="ENTER CALLSIGN..." maxlength="16" value="AGENT_X">
+    <div class="mp-actions" style="margin-top:16px;">
+      <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ LAUNCH SOLO MISSION</button>
+      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.4;">← BACK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ MULTIPLAYER ══════════════════ -->
+<div id="mp-screen" class="screen">
+  <div class="mp-container">
+    <div class="mp-header">[ SECURE CHANNEL — MULTIPLAYER ]</div>
+
+    <div id="mp-mode-select">
+      <div class="section-label">// SELECT OPERATION</div>
+      <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
+        <button class="menu-btn" onclick="UI.showMPCreate()">
+          &gt; CREATE ROOM — broadcast new node
+          <span class="btn-tag">// generate access code — invite operatives</span>
+        </button>
+        <button class="menu-btn" onclick="UI.showMPJoin()">
+          &gt; JOIN ROOM — enter access code
+          <span class="btn-tag">// enter operative's channel</span>
+        </button>
+      </div>
+      <button class="ghost-btn" style="margin-top:16px; width:100%;" onclick="UI.showScreen('boot-screen')">← ABORT MISSION</button>
+    </div>
+
+    <div id="mp-create-form" style="display:none;">
+      <div class="section-label">// CREATE ROOM</div>
+      <input class="mp-input" id="create-name-input" placeholder="OPERATIVE CALLSIGN..." maxlength="16" style="margin-top:12px;">
+      <div class="mp-actions" style="margin-top:12px;">
+        <button class="submit-btn" onclick="MP.createRoom()" style="flex:1;">▶ BROADCAST NODE</button>
+        <button class="ghost-btn" onclick="UI.showMPSelect()" style="flex:0.4;">← BACK</button>
+      </div>
+    </div>
+
+    <div id="mp-join-form" style="display:none;">
+      <div class="section-label">// JOIN ROOM</div>
+      <input class="mp-input" id="join-code-input" placeholder="ACCESS CODE..." maxlength="6" oninput="this.value=this.value.toUpperCase()" style="margin-top:12px;">
+      <input class="mp-input" id="join-name-input" placeholder="OPERATIVE CALLSIGN..." maxlength="16" style="margin-top:8px;">
+      <div class="mp-actions" style="margin-top:12px;">
+        <button class="submit-btn" onclick="MP.joinRoom()" style="flex:1;">▶ INFILTRATE CHANNEL</button>
+        <button class="ghost-btn" onclick="UI.showMPSelect()" style="flex:0.4;">← BACK</button>
+      </div>
+    </div>
+
+    <div id="mp-error" class="mp-error" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- ══════════════════ LOBBY ══════════════════ -->
+<div id="lobby-screen" class="screen">
+  <div class="mp-container">
+    <div class="mp-header">[ OPERATION LOBBY ]</div>
+
+    <div class="mp-code-display">
+      <div class="code-label">ACCESS CODE — SHARE WITH OPERATIVES</div>
+      <div class="room-code" id="lobby-code">------</div>
+    </div>
+
+    <div class="section-label">// CONNECTED OPERATIVES</div>
+    <div class="mp-players" id="lobby-players"></div>
+
+    <div id="lobby-ready-section" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
+      <button class="submit-btn" id="ready-btn" onclick="MP.setReady()">▶ MARK AS READY</button>
+      <button class="submit-btn" id="force-start-btn" onclick="MP.forceStart()" style="display:none; background:var(--amber); color:#000;">⚡ FORCE START (HOST)</button>
+      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')">✕ ABANDON MISSION</button>
+    </div>
+
+    <div class="section-label" style="margin-top:20px;">// COMM CHANNEL</div>
+    <div class="chat-box" id="lobby-chat"></div>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <input class="mp-input" id="lobby-chat-input" placeholder="TRANSMIT MESSAGE..." style="flex:1;" onkeydown="if(event.key==='Enter') MP.sendChat()">
+      <button class="ghost-btn" onclick="MP.sendChat()" style="width:60px;">SEND</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ GAME SCREEN ══════════════════ -->
+<div id="game-screen" class="screen no-pad">
+  <div class="game-top-bar">
+    <div class="gtb-left">
+      <div class="gtb-logo">CAMGUESSR</div>
+      <div class="round-indicator" id="round-dots"></div>
+    </div>
+    <div class="gtb-right">
+      <div class="stat-box">
+        <div class="stat-label">ROUND</div>
+        <div class="stat-value" id="round-display">1/5</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">TIME</div>
+        <div class="stat-value timer-val" id="timer-display">90</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">SCORE</div>
+        <div class="stat-value" id="score-display">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">CREDITS</div>
+        <div class="stat-value amber" id="credits-display">500</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timer bar -->
+  <div class="timer-bar-container">
+    <div class="timer-bar" id="timer-bar"></div>
+  </div>
+
+  <div class="game-body">
+    <!-- Camera Feed -->
+    <div class="camera-panel">
+      <div class="camera-feed-container" id="cam-feed-container">
+        <div class="cam-loading" id="cam-loading">
+          <div class="cam-loading-spinner"></div>
+          <div class="cam-loading-text" id="load-text"><span>Initializing...</span></div>
+          <div class="cam-status-ticker" id="load-ticker"></div>
+        </div>
+        <img class="camera-img" id="camera-img" alt="Camera feed" onload="UI.onImageLoaded()" onerror="UI.onImageError()">
+      </div>
+      <div class="cam-corner tl"></div>
+      <div class="cam-corner tr"></div>
+      <div class="cam-corner bl"></div>
+      <div class="cam-corner br"></div>
+      <div class="cam-overlay" id="cam-overlay" style="display:none;">
+        <div class="cam-overlay-id" id="cam-id-label">NODE: ---</div>
+        <div class="cam-overlay-status">● LIVE INTERCEPT</div>
+      </div>
+      <div class="rec-dot">REC</div>
+
+      <!-- MP Players panel overlay -->
+      <div class="mp-players-overlay" id="mp-players-overlay" style="display:none;">
+        <div class="mpo-title">OPERATIVES</div>
+        <div id="mpo-list"></div>
+      </div>
+    </div>
+
+    <!-- Guess Panel -->
+    <div class="guess-panel">
+      <div class="guess-header">// LOCATION ANALYSIS TERMINAL</div>
+
+      <div class="map-area" id="map-area">
+        <svg id="world-svg" viewBox="0 0 340 220" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div class="map-pin" id="map-pin"></div>
+        <div class="map-instructions" id="map-instructions">CLICK TO MARK LOCATION</div>
+      </div>
+
+      <div class="clues-section">
+        <div class="clues-label">// INTEL INTERCEPTS</div>
+        <div id="clues-container"></div>
+        <button class="buy-clue-btn" id="buy-clue-btn" onclick="Game.buyClue()">
+          ⬇ DECRYPT NEXT INTEL [-100 credits]
+        </button>
+      </div>
+
+      <!-- MP chat in game -->
+      <div id="game-chat-section" style="display:none; border-top:1px solid var(--border); flex-shrink:0;">
+        <div class="chat-box small" id="game-chat"></div>
+        <div style="display:flex; gap:6px; padding:6px 10px;">
+          <input class="mp-input" id="game-chat-input" placeholder="TRANSMIT..." style="flex:1; font-size:11px; padding:6px 10px;" onkeydown="if(event.key==='Enter') MP.sendChat()">
+          <button class="ghost-btn" onclick="MP.sendChat()" style="width:50px; font-size:11px; padding:6px;">TX</button>
+        </div>
+      </div>
+
+      <div class="guess-actions">
+        <div class="selected-coords" id="selected-coords">SELECT LOCATION ON MAP</div>
+        <button class="submit-btn" id="submit-btn" onclick="Game.submitGuess()" disabled>▶ TRANSMIT COORDINATES</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ ROUND RESULT ══════════════════ -->
+<div id="result-screen" class="screen">
+  <div class="result-container">
+    <div class="result-header" id="result-header">---</div>
+
+    <div class="result-map">
+      <svg id="result-svg" viewBox="0 0 640 260" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <div id="result-my-stats" class="result-stats">
+      <div class="result-stat">
+        <div class="rs-label">DISTANCE</div>
+        <div class="rs-value" id="res-distance">---</div>
+      </div>
+      <div class="result-stat">
+        <div class="rs-label">POINTS</div>
+        <div class="rs-value" id="res-points">---</div>
+      </div>
+      <div class="result-stat">
+        <div class="rs-label">TOTAL SCORE</div>
+        <div class="rs-value" id="res-total">---</div>
+      </div>
+    </div>
+
+    <div class="answer-reveal">
+      <div class="ans-label">// ACTUAL LOCATION</div>
+      <div class="ans-text" id="res-location">---</div>
+    </div>
+
+    <!-- Multiplayer leaderboard -->
+    <div id="result-leaderboard" style="display:none;">
+      <div class="section-label" style="margin-bottom:8px;">// ROUND LEADERBOARD</div>
+      <div class="mp-players" id="result-lb-list"></div>
+    </div>
+
+    <div id="result-countdown" class="result-countdown">Next round in <span id="countdown-val">8</span>s...</div>
+  </div>
+</div>
+
+<!-- ══════════════════ FINAL SCREEN ══════════════════ -->
+<div id="final-screen" class="screen">
+  <div class="final-container">
+    <div class="final-title">MISSION DEBRIEF</div>
+
+    <div id="final-sp" style="display:none;">
+      <div class="score-display" id="final-score">0</div>
+      <div class="score-max">/ 25,000 POINTS</div>
+      <div class="rank-badge" id="final-rank">ROOKIE</div>
+    </div>
+
+    <div id="final-mp" style="display:none;">
+      <div class="final-subtitle">FINAL LEADERBOARD</div>
+      <div class="mp-players" id="final-lb"></div>
+    </div>
+
+    <div class="rounds-breakdown" id="rounds-breakdown"></div>
+
+    <div class="mp-actions" style="width:100%; margin-top:16px;">
+      <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ NEW MISSION</button>
+      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.5;">MENU</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ TOAST ══════════════════ -->
+<div class="toast" id="toast"></div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="js/map.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/mp.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
