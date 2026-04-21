@@ -3,6 +3,9 @@
 // ─────────────────────────────────────────────
 
 const Game = (() => {
+  const ROUND_SECONDS = 60;
+  const CAMERA_LOAD_DELAY_MS = 900;
+
   const state = {
     mode: 'sp',          // 'sp' | 'mp'
     round: 0,
@@ -17,12 +20,53 @@ const Game = (() => {
     cluesAvailable: [],
     submitted: false,
     timerInterval: null,
-    timeLeft: 90,
+    timeLeft: ROUND_SECONDS,
+    imageReady: false,
+    mapExpanded: false,
     roundResults: [],    // SP only
     loadInterval: null,
   };
 
   let hasInitializedLeafletMap = false;
+  let hasBoundMapExpandEvents = false;
+
+  function setMapExpanded(expanded) {
+    const mapArea = document.getElementById('map-area');
+    const backdrop = document.getElementById('map-expand-backdrop');
+    const btn = document.getElementById('map-expand-btn');
+    if (!mapArea || !backdrop || !btn) return;
+
+    state.mapExpanded = expanded;
+    mapArea.classList.toggle('expanded', expanded);
+    backdrop.classList.toggle('show', expanded);
+    btn.textContent = expanded ? '✕ CLOSE' : '⤢ MAP';
+    btn.setAttribute('aria-label', expanded ? 'Close expanded map' : 'Expand map');
+
+    WorldMap.refreshGameMapSize();
+  }
+
+  function bindMapExpandEvents() {
+    if (hasBoundMapExpandEvents) return;
+    hasBoundMapExpandEvents = true;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && state.mapExpanded) {
+        setMapExpanded(false);
+      }
+    });
+  }
+
+  function setSubmitState({ disabled, text }) {
+    const mainBtn = document.getElementById('submit-btn');
+    const mapBtn = document.getElementById('map-submit-overlay-btn');
+    if (mainBtn) {
+      if (typeof disabled === 'boolean') mainBtn.disabled = disabled;
+      if (typeof text === 'string') mainBtn.textContent = text;
+    }
+    if (mapBtn) {
+      if (typeof disabled === 'boolean') mapBtn.disabled = disabled;
+      if (typeof text === 'string') mapBtn.textContent = text;
+    }
+  }
 
   const FALLBACK_SP_CAMERAS = [
     {
@@ -180,16 +224,23 @@ const Game = (() => {
 
     WorldMap.initGameMap('world-map', ({ lat, lon }) => {
       if (state.submitted) return;
+      if (!state.mapExpanded) {
+        setMapExpanded(true);
+        document.getElementById('map-instructions').textContent = 'MAP EXPANDED • CLICK AGAIN TO PLACE GUESS';
+        return;
+      }
+
       state.guessLat = lat;
       state.guessLon = lon;
 
       document.getElementById('selected-coords').innerHTML =
         `<span>LAT: ${state.guessLat.toFixed(2)}° &nbsp; LON: ${state.guessLon.toFixed(2)}°</span>`;
-      document.getElementById('submit-btn').disabled = false;
+      setSubmitState({ disabled: false });
       document.getElementById('map-instructions').textContent = 'ZOOM/PAN ENABLED • CLICK TO UPDATE GUESS';
     });
 
     hasInitializedLeafletMap = true;
+    bindMapExpandEvents();
   }
 
   async function startSinglePlayer() {
@@ -216,6 +267,8 @@ const Game = (() => {
     state.guessLon = null;
     state.cluesRevealed = 0;
     state.submitted = false;
+    state.imageReady = false;
+    setMapExpanded(false);
 
     if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
     if (state.loadInterval) { clearInterval(state.loadInterval); state.loadInterval = null; }
@@ -229,11 +282,10 @@ const Game = (() => {
     document.getElementById('score-display').textContent = state.score;
     document.getElementById('credits-display').textContent = state.credits;
     document.getElementById('clues-container').innerHTML = '';
-    document.getElementById('submit-btn').disabled = true;
-    document.getElementById('submit-btn').textContent = '▶ TRANSMIT COORDINATES';
+    setSubmitState({ disabled: true, text: '▶ SUBMIT GUESS' });
     document.getElementById('selected-coords').textContent = 'SELECT LOCATION ON MAP';
     document.getElementById('buy-clue-btn').disabled = false;
-    document.getElementById('buy-clue-btn').textContent = '⬇ DECRYPT NEXT INTEL [-100 credits]';
+    document.getElementById('buy-clue-btn').textContent = '⬇ Reveal next hint [-100 credits]';
 
     // Round dots
     const dots = document.getElementById('round-dots');
@@ -250,14 +302,13 @@ const Game = (() => {
     WorldMap.resetGameMapView();
     document.getElementById('map-instructions').textContent = 'ZOOM WITH SCROLL • DRAG TO PAN • CLICK TO GUESS';
 
-    // Start timer
-    startTimer(90);
+    // Reset timer UI. Countdown starts only after image is visible.
+    updateTimerUI(ROUND_SECONDS, ROUND_SECONDS);
 
     // Load camera
     const interval = UI.startCameraLoad(cam.id);
     state.loadInterval = interval;
     setTimeout(() => {
-      clearInterval(interval);
       const imgEl = document.getElementById('camera-img');
 
       const proxyUrl = cam.id ? `/api/camera-image/${encodeURIComponent(cam.id)}` : '';
@@ -265,18 +316,51 @@ const Game = (() => {
       const fallbackUrl = cam.imgUrl || '';
       const cacheBust = url => `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
 
+      const beginRoundTimer = () => {
+        if (state.mode !== 'sp') return;
+        if (state.timerInterval) return;
+        startTimer(ROUND_SECONDS);
+      };
+
+      imgEl.onload = () => {
+        if (state.loadInterval) { clearInterval(state.loadInterval); state.loadInterval = null; }
+        state.imageReady = true;
+        UI.onImageLoaded();
+        if (state.mode === 'mp') updateTimerUI(state.timeLeft, ROUND_SECONDS);
+        beginRoundTimer();
+      };
+
       imgEl.onerror = () => {
-        if (imgEl.dataset.fallbackTried === '1') return;
-        imgEl.dataset.fallbackTried = '1';
-        if (fallbackUrl && fallbackUrl !== primaryUrl) {
+        if (imgEl.dataset.fallbackTried !== '1' && fallbackUrl && fallbackUrl !== primaryUrl) {
+          imgEl.dataset.fallbackTried = '1';
           imgEl.src = cacheBust(fallbackUrl);
+          return;
         }
+        if (state.loadInterval) { clearInterval(state.loadInterval); state.loadInterval = null; }
+        state.imageReady = true;
+        UI.onImageError();
+        if (state.mode === 'mp') updateTimerUI(state.timeLeft, ROUND_SECONDS);
+        beginRoundTimer();
       };
 
       imgEl.dataset.fallbackTried = '0';
-      imgEl.src = cacheBust(primaryUrl);
-      imgEl.style.display = 'block';
-    }, 2200);
+      if (!primaryUrl && !fallbackUrl) {
+        if (state.loadInterval) { clearInterval(state.loadInterval); state.loadInterval = null; }
+        state.imageReady = true;
+        UI.onImageError();
+        if (state.mode === 'mp') updateTimerUI(state.timeLeft, ROUND_SECONDS);
+        beginRoundTimer();
+        return;
+      }
+
+      if (primaryUrl) {
+        imgEl.src = cacheBust(primaryUrl);
+      } else {
+        if (fallbackUrl && fallbackUrl !== primaryUrl) {
+          imgEl.src = cacheBust(fallbackUrl);
+        }
+      }
+    }, CAMERA_LOAD_DELAY_MS);
   }
 
   function startTimer(seconds) {
@@ -290,7 +374,7 @@ const Game = (() => {
         clearInterval(state.timerInterval);
         state.timerInterval = null;
         if (!state.submitted) {
-          UI.toast('TIME EXPIRED — Auto-submitting...', 'warn');
+          UI.toast('Time expired - auto-submitting...', 'warn');
           submitGuess(true);
         }
       }
@@ -316,7 +400,7 @@ const Game = (() => {
   }
 
   function buyClue() {
-    if (state.credits < 100) { UI.toast('INSUFFICIENT CREDITS', 'err'); return; }
+    if (state.credits < 100) { UI.toast('Not enough credits', 'err'); return; }
     if (state.cluesRevealed >= state.cluesAvailable.length) return;
 
     if (state.mode === 'mp') {
@@ -330,7 +414,7 @@ const Game = (() => {
       state.cluesRevealed++;
       if (state.cluesRevealed >= state.cluesAvailable.length) {
         document.getElementById('buy-clue-btn').disabled = true;
-        document.getElementById('buy-clue-btn').textContent = '// ALL INTEL DECRYPTED';
+        document.getElementById('buy-clue-btn').textContent = 'All hints unlocked';
       }
     }
   }
@@ -345,14 +429,13 @@ const Game = (() => {
     const lon = state.guessLon;
 
     if (state.mode === 'mp') {
-      document.getElementById('submit-btn').disabled = true;
-      document.getElementById('submit-btn').textContent = auto ? '⏱ TIME EXPIRED' : '✓ COORDINATES TRANSMITTED';
+      setSubmitState({ disabled: true, text: auto ? '⏱ TIME EXPIRED' : '✓ GUESS SUBMITTED' });
       if (lat !== null && lon !== null) {
         MP.socket && MP.socket.emit('submitGuess', { lat, lon });
       } else {
         MP.socket && MP.socket.emit('submitGuess', { lat: 0, lon: 0 }); // null guess
       }
-      UI.toast(auto ? 'Time up — guess sent' : 'Coordinates transmitted — awaiting others...', 'ok');
+      UI.toast(auto ? 'Time up - guess sent' : 'Guess submitted - waiting for others...', 'ok');
       return;
     }
 
@@ -373,10 +456,10 @@ const Game = (() => {
     document.getElementById('result-leaderboard').style.display = 'none';
 
     const header = document.getElementById('result-header');
-    if (pts >= 4000)      { header.textContent = '[ PRECISE INFILTRATION ]'; header.className = 'result-header great'; }
-    else if (pts >= 2000) { header.textContent = '[ OPERATIVE CONFIRMED ]'; header.className = 'result-header ok'; }
-    else if (pts >= 500)  { header.textContent = '[ PARTIAL SUCCESS ]'; header.className = 'result-header ok'; }
-    else                  { header.textContent = '[ TARGET MISSED ]'; header.className = 'result-header fail'; }
+    if (pts >= 4000)      { header.textContent = '[ INCREDIBLE GUESS ]'; header.className = 'result-header great'; }
+    else if (pts >= 2000) { header.textContent = '[ SOLID ROUND ]'; header.className = 'result-header ok'; }
+    else if (pts >= 500)  { header.textContent = '[ NOT BAD ]'; header.className = 'result-header ok'; }
+    else                  { header.textContent = '[ WAY OFF ]'; header.className = 'result-header fail'; }
 
     WorldMap.drawResultMap('result-map', {
       guess: guessLat !== null ? { lat: guessLat, lon: guessLon } : null,
@@ -431,10 +514,10 @@ const Game = (() => {
     document.getElementById('final-score').textContent = score;
 
     let rank;
-    if (score >= 22000)      rank = '[ GHOST OPERATIVE ]';
-    else if (score >= 18000) rank = '[ ELITE INFILTRATOR ]';
-    else if (score >= 13000) rank = '[ FIELD OPERATIVE ]';
-    else if (score >= 7000)  rank = '[ JUNIOR AGENT ]';
+    if (score >= 22000)      rank = '[ WORLD CLASS ]';
+    else if (score >= 18000) rank = '[ ELITE PLAYER ]';
+    else if (score >= 13000) rank = '[ SHARP EYE ]';
+    else if (score >= 7000)  rank = '[ RISING PLAYER ]';
     else                     rank = '[ ROOKIE ]';
     document.getElementById('final-rank').textContent = rank;
 
@@ -467,13 +550,14 @@ const Game = (() => {
     // Override timer with server time
     if (state.timerInterval) { clearInterval(state.timerInterval); }
     state.timeLeft = timeLeft;
-    updateTimerUI(timeLeft, 90);
+    if (state.imageReady) updateTimerUI(timeLeft, ROUND_SECONDS);
   }
 
   // Server ticks time
   function mpTimerTick(timeLeft) {
     state.timeLeft = timeLeft;
-    updateTimerUI(timeLeft, 90);
+    if (!state.imageReady) return;
+    updateTimerUI(timeLeft, ROUND_SECONDS);
     if (timeLeft <= 0 && !state.submitted) {
       submitGuess(true);
     }
@@ -483,6 +567,13 @@ const Game = (() => {
     state,
     startSinglePlayer,
     loadRound,
+    toggleMapExpanded: (force) => {
+      if (typeof force === 'boolean') {
+        setMapExpanded(force);
+      } else {
+        setMapExpanded(!state.mapExpanded);
+      }
+    },
     placePin,
     buyClue,
     submitGuess,

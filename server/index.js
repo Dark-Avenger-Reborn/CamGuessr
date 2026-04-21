@@ -625,7 +625,7 @@ app.get('/api/cameras/rounds', (req, res) => {
 // ─────────────────────────────────────────────
 const rooms = new Map();
 const ROUND_COUNT = 5;
-const ROUND_DURATION = 90; // seconds per round
+const ROUND_DURATION = 60; // seconds per round
 const GLOBAL_RECENT_CAMERA_HISTORY = Math.min(Math.max(parseInt(process.env.GLOBAL_RECENT_CAMERA_HISTORY || '250', 10) || 250, 20), 5000);
 const recentCameraIds = [];
 

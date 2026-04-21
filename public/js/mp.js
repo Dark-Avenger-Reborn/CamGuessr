@@ -24,7 +24,7 @@ const MP = (() => {
 
     socket.on('disconnect', () => {
       console.log('[MP] Disconnected');
-      UI.toast('CONNECTION LOST — reconnecting...', 'err', 4000);
+      UI.toast('Connection lost - reconnecting...', 'err', 4000);
     });
 
     socket.on('error', (data) => {
@@ -128,7 +128,7 @@ const MP = (() => {
       Game.state.cluesRevealed++;
       if (Game.state.cluesRevealed >= Game.state.cluesAvailable.length) {
         document.getElementById('buy-clue-btn').disabled = true;
-        document.getElementById('buy-clue-btn').textContent = '// ALL INTEL DECRYPTED';
+        document.getElementById('buy-clue-btn').textContent = 'All hints unlocked';
       }
     });
 
@@ -175,7 +175,7 @@ const MP = (() => {
     socket.emit('playerReady');
     const btn = document.getElementById('ready-btn');
     if (btn) {
-      btn.textContent = '✓ READY — STANDING BY';
+      btn.textContent = '✓ READY';
       btn.disabled = true;
       btn.style.opacity = '0.6';
     }
@@ -208,9 +208,9 @@ const MP = (() => {
 
     const header = document.getElementById('result-header');
     if (pts >= 4000)      { header.textContent = '[ PRECISE INFILTRATION ]'; header.className = 'result-header great'; }
-    else if (pts >= 2000) { header.textContent = '[ OPERATIVE CONFIRMED ]'; header.className = 'result-header ok'; }
-    else if (pts >= 500)  { header.textContent = '[ PARTIAL SUCCESS ]'; header.className = 'result-header ok'; }
-    else                  { header.textContent = '[ TARGET MISSED ]'; header.className = 'result-header fail'; }
+    else if (pts >= 2000) { header.textContent = '[ SOLID ROUND ]'; header.className = 'result-header ok'; }
+    else if (pts >= 500) { header.textContent = '[ NOT BAD ]'; header.className = 'result-header ok'; }
+    else                  { header.textContent = '[ WAY OFF ]'; header.className = 'result-header fail'; }
 
     // Draw map with ALL guesses
     WorldMap.drawResultMap('result-map', {

@@ -1,7 +1,7 @@
 -# CAMGUESSR
 
-> GeoGuessr-style game using live public surveillance camera feeds.
-> Hacker aesthetic. Real-time multiplayer via Socket.IO.
+> GeoGuessr-style game using live public camera feeds.
+> Clean, game-first UI with real-time multiplayer via Socket.IO.
 
 ---
 
@@ -41,7 +41,7 @@ camguessr/
 ├── public/
 │   ├── index.html        # Main HTML
 │   ├── css/
-│   │   └── style.css     # Full hacker theme stylesheet
+│   │   └── style.css     # Main UI stylesheet
 │   └── js/
 │       ├── map.js        # World map SVG + coordinate math
 │       ├── ui.js         # Screen management, boot sequence, UI helpers
@@ -109,7 +109,7 @@ Player A                   Server                    Player B
 ## Game Rules
 
 - **5 rounds** per game
-- **90 seconds** per round (server-authoritative timer)
+- **60 seconds** per round (server-authoritative timer)
 - Click the world map to place your guess
 - Buy Intel Intercepts for location clues (100 credits each, starts with 500)
 - Scoring by Haversine distance:

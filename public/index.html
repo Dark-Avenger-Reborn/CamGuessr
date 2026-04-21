@@ -3,16 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CAMGUESSR // SURVEILLANCE INTELLIGENCE</title>
+  <title>CamGuessr</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
-
-<div class="scanline"></div>
-<div class="matrix-scan"></div>
 
 <!-- ══════════════════ BOOT / MENU ══════════════════ -->
 <div id="boot-screen" class="screen active">
@@ -24,37 +21,37 @@
  ╚██████╗██║  ██║██║ ╚═╝ ██║╚██████╔╝╚██████╔╝███████╗███████║███████║
   ╚═════╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚══════╝</pre>
     <div class="game-title">CAMGUESSR</div>
-    <div class="game-subtitle">[ GLOBAL SURVEILLANCE INTELLIGENCE NETWORK ]</div>
+    <div class="game-subtitle">Live camera location challenge</div>
   </div>
 
   <div class="boot-log" id="boot-log"></div>
 
   <div class="menu-box" id="main-menu" style="display:none;">
     <button class="menu-btn" onclick="UI.showScreen('sp-setup-screen')">
-      &gt; SINGLE PLAYER MODE
-      <span class="btn-tag">// infiltrate solo — 5 rounds — high score chase</span>
+      &gt; SINGLE PLAYER
+      <span class="btn-tag">5 rounds, best score wins</span>
     </button>
     <button class="menu-btn" onclick="UI.showScreen('mp-screen')">
-      &gt; MULTIPLAYER MODE
-      <span class="btn-tag">// coordinate with allies — real-time — race to identify</span>
+      &gt; MULTIPLAYER
+      <span class="btn-tag">same feed for everyone, fastest accurate play</span>
     </button>
     <button class="menu-btn" onclick="UI.showHowTo()">
-      &gt; ACCESS INTEL FILE
-      <span class="btn-tag">// mission briefing — rules — scoring protocol</span>
+      &gt; HOW TO PLAY
+      <span class="btn-tag">rules, scoring, and controls</span>
     </button>
   </div>
 
-  <div class="ver-tag" id="ver-tag" style="display:none;">CAMGUESSR v2.5.0 // SOCKET.IO ENABLED // NODE COUNT: 47,293</div>
+  <div class="ver-tag" id="ver-tag" style="display:none;">CAMGUESSR v3.0.0 // MULTIPLAYER READY</div>
 </div>
 
 <!-- ══════════════════ SP SETUP ══════════════════ -->
 <div id="sp-setup-screen" class="screen">
   <div class="setup-container">
-    <div class="setup-title">[ SINGLE PLAYER SETUP ]</div>
-    <div class="section-label">// OPERATIVE CALLSIGN</div>
-    <input class="mp-input" id="sp-name-input" placeholder="ENTER CALLSIGN..." maxlength="16" value="AGENT_X">
+    <div class="setup-title">Single Player Setup</div>
+    <div class="section-label">PLAYER NAME</div>
+    <input class="mp-input" id="sp-name-input" placeholder="ENTER NAME..." maxlength="16" value="PLAYER_1">
     <div class="mp-actions" style="margin-top:16px;">
-      <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ LAUNCH SOLO MISSION</button>
+      <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ START GAME</button>
       <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.4;">← BACK</button>
     </div>
   </div>
@@ -63,38 +60,38 @@
 <!-- ══════════════════ MULTIPLAYER ══════════════════ -->
 <div id="mp-screen" class="screen">
   <div class="mp-container">
-    <div class="mp-header">[ SECURE CHANNEL — MULTIPLAYER ]</div>
+    <div class="mp-header">Multiplayer</div>
 
     <div id="mp-mode-select">
-      <div class="section-label">// SELECT OPERATION</div>
+      <div class="section-label">SELECT ACTION</div>
       <div style="display:flex; flex-direction:column; gap:12px; margin-top:12px;">
         <button class="menu-btn" onclick="UI.showMPCreate()">
-          &gt; CREATE ROOM — broadcast new node
-          <span class="btn-tag">// generate access code — invite operatives</span>
+          &gt; CREATE ROOM
+          <span class="btn-tag">generate a code and invite friends</span>
         </button>
         <button class="menu-btn" onclick="UI.showMPJoin()">
-          &gt; JOIN ROOM — enter access code
-          <span class="btn-tag">// enter operative's channel</span>
+          &gt; JOIN ROOM
+          <span class="btn-tag">enter a room code</span>
         </button>
       </div>
-      <button class="ghost-btn" style="margin-top:16px; width:100%;" onclick="UI.showScreen('boot-screen')">← ABORT MISSION</button>
+      <button class="ghost-btn" style="margin-top:16px; width:100%;" onclick="UI.showScreen('boot-screen')">← BACK TO MENU</button>
     </div>
 
     <div id="mp-create-form" style="display:none;">
-      <div class="section-label">// CREATE ROOM</div>
-      <input class="mp-input" id="create-name-input" placeholder="OPERATIVE CALLSIGN..." maxlength="16" style="margin-top:12px;">
+      <div class="section-label">CREATE ROOM</div>
+      <input class="mp-input" id="create-name-input" placeholder="PLAYER NAME..." maxlength="16" style="margin-top:12px;">
       <div class="mp-actions" style="margin-top:12px;">
-        <button class="submit-btn" onclick="MP.createRoom()" style="flex:1;">▶ BROADCAST NODE</button>
+        <button class="submit-btn" onclick="MP.createRoom()" style="flex:1;">▶ CREATE</button>
         <button class="ghost-btn" onclick="UI.showMPSelect()" style="flex:0.4;">← BACK</button>
       </div>
     </div>
 
     <div id="mp-join-form" style="display:none;">
-      <div class="section-label">// JOIN ROOM</div>
-      <input class="mp-input" id="join-code-input" placeholder="ACCESS CODE..." maxlength="6" oninput="this.value=this.value.toUpperCase()" style="margin-top:12px;">
-      <input class="mp-input" id="join-name-input" placeholder="OPERATIVE CALLSIGN..." maxlength="16" style="margin-top:8px;">
+      <div class="section-label">JOIN ROOM</div>
+      <input class="mp-input" id="join-code-input" placeholder="ROOM CODE..." maxlength="6" oninput="this.value=this.value.toUpperCase()" style="margin-top:12px;">
+      <input class="mp-input" id="join-name-input" placeholder="PLAYER NAME..." maxlength="16" style="margin-top:8px;">
       <div class="mp-actions" style="margin-top:12px;">
-        <button class="submit-btn" onclick="MP.joinRoom()" style="flex:1;">▶ INFILTRATE CHANNEL</button>
+        <button class="submit-btn" onclick="MP.joinRoom()" style="flex:1;">▶ JOIN</button>
         <button class="ghost-btn" onclick="UI.showMPSelect()" style="flex:0.4;">← BACK</button>
       </div>
     </div>
@@ -106,26 +103,26 @@
 <!-- ══════════════════ LOBBY ══════════════════ -->
 <div id="lobby-screen" class="screen">
   <div class="mp-container">
-    <div class="mp-header">[ OPERATION LOBBY ]</div>
+    <div class="mp-header">Game Lobby</div>
 
     <div class="mp-code-display">
-      <div class="code-label">ACCESS CODE — SHARE WITH OPERATIVES</div>
+      <div class="code-label">ROOM CODE</div>
       <div class="room-code" id="lobby-code">------</div>
     </div>
 
-    <div class="section-label">// CONNECTED OPERATIVES</div>
+    <div class="section-label">PLAYERS</div>
     <div class="mp-players" id="lobby-players"></div>
 
     <div id="lobby-ready-section" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
       <button class="submit-btn" id="ready-btn" onclick="MP.setReady()">▶ MARK AS READY</button>
       <button class="submit-btn" id="force-start-btn" onclick="MP.forceStart()" style="display:none; background:var(--amber); color:#000;">⚡ FORCE START (HOST)</button>
-      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')">✕ ABANDON MISSION</button>
+      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')">✕ LEAVE ROOM</button>
     </div>
 
-    <div class="section-label" style="margin-top:20px;">// COMM CHANNEL</div>
+    <div class="section-label" style="margin-top:20px;">CHAT</div>
     <div class="chat-box" id="lobby-chat"></div>
     <div style="display:flex; gap:8px; margin-top:8px;">
-      <input class="mp-input" id="lobby-chat-input" placeholder="TRANSMIT MESSAGE..." style="flex:1;" onkeydown="if(event.key==='Enter') MP.sendChat()">
+      <input class="mp-input" id="lobby-chat-input" placeholder="TYPE A MESSAGE..." style="flex:1;" onkeydown="if(event.key==='Enter') MP.sendChat()">
       <button class="ghost-btn" onclick="MP.sendChat()" style="width:60px;">SEND</button>
     </div>
   </div>
@@ -145,7 +142,7 @@
       </div>
       <div class="stat-box">
         <div class="stat-label">TIME</div>
-        <div class="stat-value timer-val" id="timer-display">90</div>
+        <div class="stat-value timer-val" id="timer-display">60</div>
       </div>
       <div class="stat-box">
         <div class="stat-label">SCORE</div>
@@ -172,39 +169,42 @@
           <div class="cam-loading-text" id="load-text"><span>Initializing...</span></div>
           <div class="cam-status-ticker" id="load-ticker"></div>
         </div>
-        <img class="camera-img" id="camera-img" alt="Camera feed" onload="UI.onImageLoaded()" onerror="UI.onImageError()">
+        <img class="camera-img" id="camera-img" alt="Street camera feed">
       </div>
       <div class="cam-corner tl"></div>
       <div class="cam-corner tr"></div>
       <div class="cam-corner bl"></div>
       <div class="cam-corner br"></div>
       <div class="cam-overlay" id="cam-overlay" style="display:none;">
-        <div class="cam-overlay-id" id="cam-id-label">NODE: ---</div>
-        <div class="cam-overlay-status">● LIVE INTERCEPT</div>
+        <div class="cam-overlay-id" id="cam-id-label">CAMERA: ---</div>
+        <div class="cam-overlay-status">LIVE</div>
       </div>
-      <div class="rec-dot">REC</div>
+      <div class="rec-dot">LIVE</div>
 
       <!-- MP Players panel overlay -->
       <div class="mp-players-overlay" id="mp-players-overlay" style="display:none;">
-        <div class="mpo-title">OPERATIVES</div>
+        <div class="mpo-title">PLAYERS</div>
         <div id="mpo-list"></div>
       </div>
     </div>
 
     <!-- Guess Panel -->
     <div class="guess-panel">
-      <div class="guess-header">// LOCATION ANALYSIS TERMINAL</div>
+      <div class="guess-header">Place Your Guess</div>
 
       <div class="map-area" id="map-area">
+        <button class="map-expand-btn" id="map-expand-btn" onclick="Game.toggleMapExpanded()" type="button" aria-label="Expand map">⤢ MAP</button>
+        <button class="map-submit-overlay-btn" id="map-submit-overlay-btn" onclick="Game.submitGuess()" type="button" disabled>SUBMIT</button>
         <div id="world-map" class="leaflet-map"></div>
         <div class="map-instructions" id="map-instructions">LOADING MAP...</div>
       </div>
+      <div class="map-expand-backdrop" id="map-expand-backdrop" onclick="Game.toggleMapExpanded(false)"></div>
 
       <div class="clues-section">
-        <div class="clues-label">// INTEL INTERCEPTS</div>
+        <div class="clues-label">Hints</div>
         <div id="clues-container"></div>
         <button class="buy-clue-btn" id="buy-clue-btn" onclick="Game.buyClue()">
-          ⬇ DECRYPT NEXT INTEL [-100 credits]
+          ⬇ Reveal next hint [-100 credits]
         </button>
       </div>
 
@@ -212,14 +212,14 @@
       <div id="game-chat-section" style="display:none; border-top:1px solid var(--border); flex-shrink:0;">
         <div class="chat-box small" id="game-chat"></div>
         <div style="display:flex; gap:6px; padding:6px 10px;">
-          <input class="mp-input" id="game-chat-input" placeholder="TRANSMIT..." style="flex:1; font-size:11px; padding:6px 10px;" onkeydown="if(event.key==='Enter') MP.sendChat()">
+          <input class="mp-input" id="game-chat-input" placeholder="MESSAGE..." style="flex:1; font-size:11px; padding:6px 10px;" onkeydown="if(event.key==='Enter') MP.sendChat()">
           <button class="ghost-btn" onclick="MP.sendChat()" style="width:50px; font-size:11px; padding:6px;">TX</button>
         </div>
       </div>
 
       <div class="guess-actions">
         <div class="selected-coords" id="selected-coords">SELECT LOCATION ON MAP</div>
-        <button class="submit-btn" id="submit-btn" onclick="Game.submitGuess()" disabled>▶ TRANSMIT COORDINATES</button>
+        <button class="submit-btn" id="submit-btn" onclick="Game.submitGuess()" disabled>▶ SUBMIT GUESS</button>
       </div>
     </div>
   </div>
@@ -267,7 +267,7 @@
 <!-- ══════════════════ FINAL SCREEN ══════════════════ -->
 <div id="final-screen" class="screen">
   <div class="final-container">
-    <div class="final-title">MISSION DEBRIEF</div>
+    <div class="final-title">Game Summary</div>
 
     <div id="final-sp" style="display:none;">
       <div class="score-display" id="final-score">0</div>
@@ -283,7 +283,7 @@
     <div class="rounds-breakdown" id="rounds-breakdown"></div>
 
     <div class="mp-actions" style="width:100%; margin-top:16px;">
-      <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ NEW MISSION</button>
+      <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ PLAY AGAIN</button>
       <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.5;">MENU</button>
     </div>
   </div>

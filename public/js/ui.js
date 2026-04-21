@@ -4,24 +4,18 @@
 
 const UI = (() => {
   const BOOT_LINES = [
-    { text: '[OK] Secure tunnel initialized — TLS 1.3', cls: 'log-ok', delay: 150 },
-    { text: '[OK] Proxy chain established — 7 nodes', cls: 'log-ok', delay: 350 },
-    { text: '[..] Scanning global camera network...', cls: '', delay: 600 },
-    { text: '[OK] 47,293 nodes located — 12,041 online', cls: 'log-ok', delay: 1000 },
-    { text: '[WARN] 3 nodes behind firewall — bypassing...', cls: 'log-warn', delay: 1250 },
-    { text: '[OK] Firewall bypass successful', cls: 'log-ok', delay: 1650 },
-    { text: '[..] Connecting to Socket.IO relay server...', cls: '', delay: 1900 },
-    { text: '[OK] Real-time channel open — multiplayer ready', cls: 'log-ok', delay: 2200 },
-    { text: '[..] Loading geolocation engine v4.2...', cls: '', delay: 2450 },
-    { text: '[OK] All systems nominal — ready to infiltrate', cls: 'log-ok', delay: 2750 },
+    { text: '[OK] Loading camera catalog', cls: 'log-ok', delay: 150 },
+    { text: '[OK] Building map interface', cls: 'log-ok', delay: 450 },
+    { text: '[..] Syncing round data', cls: '', delay: 750 },
+    { text: '[OK] Multiplayer channel online', cls: 'log-ok', delay: 1100 },
+    { text: '[..] Calibrating score model', cls: '', delay: 1450 },
+    { text: '[OK] Ready to play', cls: 'log-ok', delay: 1800 },
   ];
 
   const LOAD_STEPS = [
-    { text: 'Routing through proxy...', ticker: '// Establishing encrypted tunnel...' },
-    { text: 'Bypassing firewall...', ticker: '// Decrypting access credentials...' },
-    { text: 'Accessing node...', ticker: '// Authenticating with remote server...' },
-    { text: 'Decrypting stream...', ticker: '// Intercepting live feed...' },
-    { text: 'Stabilizing feed...', ticker: '// Decoding video signal...' },
+    { text: 'Connecting to camera...', ticker: 'Fetching latest frame' },
+    { text: 'Loading street view...', ticker: 'Optimizing image quality' },
+    { text: 'Finalizing round...', ticker: 'Timer starts after image appears' },
   ];
 
   let toastTimer = null;
@@ -110,7 +104,7 @@ const UI = (() => {
     next();
     const interval = setInterval(next, 850);
 
-    document.getElementById('cam-id-label').textContent = `NODE: ${(camId || '???').toUpperCase()}`;
+    document.getElementById('cam-id-label').textContent = `CAMERA: ${(camId || '???').toUpperCase()}`;
     return interval;
   }
 
@@ -126,15 +120,15 @@ const UI = (() => {
     document.getElementById('cam-loading').innerHTML = `
       <div style="text-align:center; padding:16px;">
         <div style="font-size:36px; color:var(--green-dim); margin-bottom:14px;">📡</div>
-        <div style="font-size:13px; color:var(--green);">FEED ACQUIRED — METADATA ENCRYPTED</div>
-        <div style="font-size:11px; color:var(--text-dim); margin-top:8px;">Node: ${cam ? cam.id : '---'}</div>
+        <div style="font-size:13px; color:var(--green);">IMAGE UNAVAILABLE - YOU CAN STILL GUESS</div>
+        <div style="font-size:11px; color:var(--text-dim); margin-top:8px;">Camera: ${cam ? cam.id : '---'}</div>
         <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:10px; color:var(--text-dim); text-align:left; max-width:260px; margin-left:auto; margin-right:auto;">
-          <div>Lat: [ENCRYPTED]</div>
-          <div>Lon: [ENCRYPTED]</div>
-          <div>Signal: ████████░░ 82%</div>
-          <div>Codec: H.264 / 1080p</div>
+          <div>Status: Offline</div>
+          <div>Frame: Not received</div>
+          <div>Hint 1: Available</div>
+          <div>Hint 2+: Buy with credits</div>
         </div>
-        <div style="margin-top:14px; font-size:10px; color:var(--amber);">↓ Use Intel Intercepts to identify location</div>
+        <div style="margin-top:14px; font-size:10px; color:var(--amber);">Use hints and map context to make your best guess.</div>
       </div>`;
     document.getElementById('cam-loading').style.display = 'block';
     document.getElementById('cam-overlay').style.display = 'block';
@@ -181,7 +175,7 @@ const UI = (() => {
     const container = document.getElementById('clues-container');
     const div = document.createElement('div');
     div.className = 'clue-item';
-    div.innerHTML = `<span class="clue-num">INTEL-${String(index + 1).padStart(2, '0')}</span>${clueText}`;
+    div.innerHTML = `<span class="clue-num">HINT ${String(index + 1).padStart(2, '0')}</span>${clueText}`;
     container.appendChild(div);
     setTimeout(() => div.classList.add('revealed'), 50);
   }
@@ -198,23 +192,21 @@ const UI = (() => {
 
   function showHowTo() {
     alert(
-`MISSION BRIEFING
+`HOW TO PLAY
 ════════════════════════════════════════
 
 OBJECTIVE:
-Identify the location of a live surveillance
-camera feed somewhere in the world.
+Find where the street camera image was taken.
 
 HOW TO PLAY:
-1. Observe the camera feed for visual clues
+1. Study the image for clues (signs, roads, weather, terrain)
 2. Click the world map to place your guess
-3. Purchase Intel Intercepts for hints (100cr each)
-4. Hit TRANSMIT COORDINATES before time runs out
+3. Buy hints if needed (100 credits each)
+4. Submit before time runs out
 
 TIMER:
-90 seconds per round. Timer bar depletes in
-real-time. Unused time doesn't carry over.
-Guess early for the same points!
+60 seconds per round. The timer starts after
+the image is shown. Unused time does not carry over.
 
 SCORING (per round, max 5,000):
 • Under 10km    → 5,000 pts (FLAWLESS)
@@ -224,15 +216,13 @@ SCORING (per round, max 5,000):
 
 MULTIPLAYER:
 All players see the same camera. Guesses are
-hidden until round ends. First to guess gets
-no bonus — accuracy is everything.
+hidden until round end. Accuracy matters most.
 
-Credits do not affect score. Intel = tactical
-advantage, not required.
+Credits do not affect score. Hints are optional.
 
 5 rounds · max 25,000 points
 
-GOOD LUCK, OPERATIVE.`
+Good luck!`
     );
   }
 

@@ -21,10 +21,11 @@ const WorldMap = (() => {
   }
 
   function createTileLayer() {
-    return L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
       minZoom: 1,
-      attribution: '&copy; OpenStreetMap contributors'
+        subdomains: 'abcd',
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     });
   }
 
@@ -206,6 +207,11 @@ const WorldMap = (() => {
     setTimeout(() => gameMap.invalidateSize(), 0);
   }
 
+  function refreshGameMapSize() {
+    if (!gameMap) return;
+    setTimeout(() => gameMap.invalidateSize(), 0);
+  }
+
   return {
     haversineKm,
     calcPoints,
@@ -213,6 +219,7 @@ const WorldMap = (() => {
     setGameGuess,
     clearGameGuess,
     resetGameMapView,
+    refreshGameMapSize,
     drawResultMap
   };
 })();
