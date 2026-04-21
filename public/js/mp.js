@@ -48,14 +48,23 @@ const MP = (() => {
       isHost = false;
       hostId = data.roomState.host;
       currentPlayers = data.roomState.players;
-      renderLobby(data.roomState);
-      UI.showScreen('lobby-screen');
+      if (data.roomState.phase === 'finished') {
+        showFinalMP(data.finalLeaderboard || [], data.roomState);
+      } else {
+        renderLobby(data.roomState);
+        UI.showScreen('lobby-screen');
+      }
     });
 
     socket.on('playerJoined', (data) => {
       currentPlayers = data.roomState.players;
       hostId = data.roomState.host;
-      renderLobby(data.roomState);
+      isHost = socket.id === hostId;
+      if (data.roomState.phase === 'finished' && document.getElementById('final-screen').classList.contains('active')) {
+        renderFinalRematch(data.roomState);
+      } else {
+        renderLobby(data.roomState);
+      }
       UI.toast(`${data.playerName} joined the channel`, 'ok');
       UI.addChatMessage('lobby-chat', 'SYS', `${data.playerName} connected`);
     });
@@ -63,7 +72,12 @@ const MP = (() => {
     socket.on('playerLeft', (data) => {
       currentPlayers = data.roomState.players;
       hostId = data.roomState.host;
-      renderLobby(data.roomState);
+      isHost = socket.id === hostId;
+      if (data.roomState.phase === 'finished' && document.getElementById('final-screen').classList.contains('active')) {
+        renderFinalRematch(data.roomState);
+      } else {
+        renderLobby(data.roomState);
+      }
       UI.toast(`${data.playerName} left`, 'warn');
       UI.addChatMessage('lobby-chat', 'SYS', `${data.playerName} disconnected`);
       if (Game.state.mode === 'mp') {
@@ -234,29 +248,126 @@ const MP = (() => {
     currentPlayers = roomState.players || currentPlayers;
     hostId = roomState.host || hostId;
     isHost = socket && socket.id === hostId;
+    roomCode = roomState.code || roomCode;
 
-    const playerById = new Map(currentPlayers.map(p => [p.id, p]));
+    const scoreById = new Map(finalLeaderboard.map(p => [p.id, p.score]));
+    const displayPlayers = currentPlayers
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        ready: !!p.ready,
+        score: scoreById.has(p.id) ? scoreById.get(p.id) : 0
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    const roomCodeEl = document.getElementById('final-room-code');
+    if (roomCodeEl) {
+      roomCodeEl.textContent = `ROOM CODE: ${roomCode || '------'}`;
+    }
+
     const lbEl = document.getElementById('final-lb');
     lbEl.innerHTML = '';
 
-    finalLeaderboard.forEach((p, i) => {
+    displayPlayers.forEach((p, i) => {
       const isMe = p.id === (socket ? socket.id : null);
-      const rowState = playerById.get(p.id);
       const row = document.createElement('div');
       row.className = 'player-row';
       const medals = ['🥇', '🥈', '🥉'];
       row.innerHTML = `
-        <div class="player-dot ${rowState && rowState.ready ? '' : 'offline'}"></div>
+        <div class="player-dot ${p.ready ? '' : 'offline'}"></div>
         <div class="player-name" style="${isMe ? 'color:var(--green);' : ''}">
           ${medals[i] || `#${i+1}`} ${p.name}${isMe ? ' (YOU)' : ''}
         </div>
-        <div class="player-status ${rowState && rowState.ready ? 'ready' : ''}">${rowState && rowState.ready ? 'READY' : 'STANDBY'}</div>
+        <div class="player-status ${p.ready ? 'ready' : ''}">${p.ready ? 'READY' : 'STANDBY'}</div>
         <div class="player-score-badge">${p.score} pts</div>
       `;
       lbEl.appendChild(row);
     });
 
+    const me = displayPlayers.find(p => p.id === (socket ? socket.id : null));
+    const mpScoreEl = document.getElementById('final-mp-score');
+    if (mpScoreEl) {
+      mpScoreEl.textContent = me ? me.score : 0;
+    }
+
     updateFinalRematchControls();
+  }
+
+  function buildFinalSummaryRounds() {
+    const rounds = new Map();
+
+    finalLeaderboard.forEach((player) => {
+      (player.roundResults || []).forEach((rr, idx) => {
+        const roundNum = Number.isFinite(rr.round) ? rr.round + 1 : idx + 1;
+        if (!rounds.has(roundNum)) {
+          rounds.set(roundNum, {
+            round: roundNum,
+            actual: rr.actual || null,
+            guesses: []
+          });
+        }
+
+        const bucket = rounds.get(roundNum);
+        if (!bucket.actual && rr.actual) bucket.actual = rr.actual;
+        bucket.guesses.push({
+          playerId: player.id,
+          playerName: player.name,
+          guess: rr.guess || null,
+          dist: rr.dist === null || rr.dist === undefined ? null : rr.dist
+        });
+      });
+    });
+
+    return Array.from(rounds.values())
+      .sort((a, b) => a.round - b.round)
+      .map((round) => ({
+        ...round,
+        guesses: round.guesses.sort((a, b) => {
+          if (a.dist === null) return 1;
+          if (b.dist === null) return -1;
+          return a.dist - b.dist;
+        })
+      }));
+  }
+
+  function renderFinalDistanceList(summaryRounds) {
+    const list = document.getElementById('final-distance-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    summaryRounds.forEach((round) => {
+      const head = document.createElement('div');
+      head.className = 'fd-head';
+      head.textContent = `ROUND ${round.round} • ${round.actual?.location || 'Unknown location'}`;
+      list.appendChild(head);
+
+      round.guesses.forEach((g) => {
+        const isMe = g.playerId === (socket ? socket.id : null);
+        const row = document.createElement('div');
+        row.className = 'fd-row';
+        row.innerHTML = `
+          <div class="fd-player">${g.playerName}${isMe ? ' (YOU)' : ''}</div>
+          <div class="fd-dist ${g.dist === null ? 'none' : ''}">${g.dist === null ? 'No guess' : `${g.dist} km`}</div>
+        `;
+        list.appendChild(row);
+      });
+    });
+  }
+
+  function renderFinalSummary() {
+    const summaryBlock = document.getElementById('final-summary-block');
+    if (!summaryBlock) return;
+
+    const summaryRounds = buildFinalSummaryRounds();
+    const hasPlottable = summaryRounds.some(r => r.actual && r.guesses.some(g => g.guess));
+    if (!hasPlottable) {
+      summaryBlock.style.display = 'none';
+      return;
+    }
+
+    summaryBlock.style.display = 'flex';
+    WorldMap.drawFinalSummaryMap('final-summary-map', summaryRounds);
+    renderFinalDistanceList(summaryRounds);
   }
 
   function leaveRoom() {
@@ -353,32 +464,16 @@ const MP = (() => {
     finalLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
     UI.showScreen('final-screen');
     document.getElementById('final-sp').style.display = 'none';
-    document.getElementById('final-mp').style.display = 'block';
+    document.getElementById('final-mp').style.display = 'grid';
     document.getElementById('final-actions-sp').style.display = 'none';
-    document.getElementById('final-actions-mp').style.display = 'flex';
 
     if (roomState) {
       renderFinalRematch(roomState);
     } else {
       renderFinalRematch({ players: currentPlayers, host: hostId });
     }
+    renderFinalSummary();
 
-    // Show MY breakdown
-    const me = finalLeaderboard.find(p => p.id === (socket ? socket.id : null));
-    const breakdown = document.getElementById('rounds-breakdown');
-    breakdown.innerHTML = '';
-    if (me && me.roundResults) {
-      me.roundResults.forEach((r, i) => {
-        const row = document.createElement('div');
-        row.className = 'rbd-row';
-        row.innerHTML = `
-          <div class="rbd-num">#${i + 1}</div>
-          <div class="rbd-loc">${r.dist !== null ? `${r.dist}km off` : 'No guess'}</div>
-          <div class="rbd-pts">+${r.pts}</div>
-        `;
-        breakdown.appendChild(row);
-      });
-    }
   }
 
   return {

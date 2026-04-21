@@ -265,8 +265,7 @@ const Game = (() => {
       if (state.submitted) return;
       if (!state.mapExpanded) {
         setMapExpanded(true);
-        document.getElementById('map-instructions').textContent = 'MAP EXPANDED • CLICK AGAIN TO PLACE GUESS';
-        return;
+        document.getElementById('map-instructions').textContent = 'MAP EXPANDED • GUESS PLACED';
       }
 
       state.guessLat = lat;
@@ -502,7 +501,13 @@ const Game = (() => {
       pts = WorldMap.calcPoints(dist);
     }
     state.score += pts;
-    state.roundResults.push({ cam, dist, pts, score: state.score });
+    state.roundResults.push({
+      cam,
+      guess: lat !== null && lon !== null ? { lat, lon } : null,
+      dist: dist !== null ? Math.round(dist) : null,
+      pts,
+      score: state.score
+    });
     showSPResult(cam, lat, lon, dist, pts);
   }
 
@@ -562,10 +567,10 @@ const Game = (() => {
 
   function showFinalSP() {
     UI.showScreen('final-screen');
-    document.getElementById('final-sp').style.display = 'block';
+    document.getElementById('final-sp').style.display = 'grid';
     document.getElementById('final-mp').style.display = 'none';
+    document.getElementById('final-sp-summary').style.display = 'none';
     document.getElementById('final-actions-sp').style.display = 'flex';
-    document.getElementById('final-actions-mp').style.display = 'none';
 
     const score = state.score;
     document.getElementById('final-score').textContent = score;
@@ -578,7 +583,8 @@ const Game = (() => {
     else                     rank = '[ ROOKIE ]';
     document.getElementById('final-rank').textContent = rank;
 
-    const breakdown = document.getElementById('rounds-breakdown');
+    const breakdown = document.getElementById('final-sp-breakdown');
+    breakdown.style.display = 'block';
     breakdown.innerHTML = '';
     state.roundResults.forEach((r, i) => {
       const row = document.createElement('div');
@@ -590,6 +596,27 @@ const Game = (() => {
       `;
       breakdown.appendChild(row);
     });
+
+    const summaryRounds = state.roundResults.map((r, i) => ({
+      round: i + 1,
+      actual: {
+        lat: r.cam.lat,
+        lon: r.cam.lon,
+        location: r.cam.location
+      },
+      guesses: [{
+        playerId: 'you',
+        playerName: 'YOU',
+        guess: r.guess,
+        dist: r.dist
+      }]
+    }));
+
+    const hasAnyGuess = summaryRounds.some((round) => round.guesses.some((g) => g.guess));
+    if (hasAnyGuess) {
+      document.getElementById('final-sp-summary').style.display = 'flex';
+      WorldMap.drawFinalSummaryMap('final-sp-summary-map', summaryRounds);
+    }
   }
 
   // Called by MP module when server sends roundStart

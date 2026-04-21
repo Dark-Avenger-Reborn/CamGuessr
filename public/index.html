@@ -273,28 +273,44 @@
       <div class="score-display" id="final-score">0</div>
       <div class="score-max">/ 25,000 POINTS</div>
       <div class="rank-badge" id="final-rank">ROOKIE</div>
+
+      <div class="rounds-breakdown" id="final-sp-breakdown"></div>
+
+      <div id="final-sp-summary" class="final-summary-block" style="display:none; margin-top:10px;">
+        <div class="final-subtitle" style="margin-top:4px;">YOUR GUESSES VS ACTUAL</div>
+        <div class="result-map final-summary-map">
+          <div id="final-sp-summary-map" class="leaflet-map"></div>
+        </div>
+      </div>
     </div>
 
     <div id="final-mp" style="display:none;">
       <div class="final-subtitle">FINAL LEADERBOARD</div>
+      <div class="section-label" id="final-room-code">ROOM CODE: ------</div>
+      <div class="final-mp-score">
+        <span class="final-mp-score-val" id="final-mp-score">0</span>
+        <span class="final-mp-score-max">/ 25,000 POINTS</span>
+      </div>
       <div class="mp-players" id="final-lb"></div>
       <div id="final-rematch-status" class="section-label" style="margin-top:10px;">WAITING FOR REMATCH READY...</div>
       <div class="mp-actions" id="final-rematch-actions" style="width:100%; margin-top:10px;">
         <button class="submit-btn" id="final-rematch-ready-btn" onclick="MP.setReady()" style="flex:1;">▶ READY FOR REMATCH</button>
         <button class="submit-btn" id="final-rematch-force-btn" onclick="MP.forceStart()" style="display:none; flex:1; background:var(--amber); color:#000;">⚡ FORCE REMATCH (HOST)</button>
       </div>
-    </div>
+      <button class="ghost-btn" id="final-rematch-leave-btn" onclick="MP.leaveRoom(); UI.showScreen('boot-screen');" style="width:100%; margin-top:10px;">LEAVE ROOM</button>
 
-    <div class="rounds-breakdown" id="rounds-breakdown"></div>
+      <div id="final-summary-block" class="final-summary-block" style="display:none;">
+        <div class="final-subtitle" style="margin-top:4px;">ALL GUESSES VS ACTUAL</div>
+        <div class="result-map final-summary-map">
+          <div id="final-summary-map" class="leaflet-map"></div>
+        </div>
+        <div id="final-distance-list" class="final-distance-list"></div>
+      </div>
+    </div>
 
     <div class="mp-actions" id="final-actions-sp" style="width:100%; margin-top:16px; display:none;">
       <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ PLAY AGAIN</button>
       <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.5;">MENU</button>
-    </div>
-
-    <div class="mp-actions" id="final-actions-mp" style="width:100%; margin-top:16px; display:none;">
-      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:1;">MENU</button>
-      <button class="ghost-btn" onclick="MP.leaveRoom(); UI.showScreen('boot-screen');" style="flex:1;">LEAVE ROOM</button>
     </div>
   </div>
 </div>

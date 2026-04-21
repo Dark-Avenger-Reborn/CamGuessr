@@ -13,6 +13,7 @@ const WorldMap = (() => {
   let resultMap = null;
   let resultTileLayer = null;
   let resultLayerGroup = null;
+  let resultContainerId = null;
 
   function ensureLeaflet() {
     if (!window.L) {
@@ -122,6 +123,13 @@ const WorldMap = (() => {
     const el = document.getElementById(containerId);
     if (!el) return null;
 
+    if (resultMap && resultContainerId && resultContainerId !== containerId) {
+      resultMap.remove();
+      resultMap = null;
+      resultTileLayer = null;
+      resultLayerGroup = null;
+    }
+
     if (!resultMap) {
       resultMap = L.map(el, {
         worldCopyJump: true,
@@ -131,6 +139,7 @@ const WorldMap = (() => {
       });
       resultTileLayer = createTileLayer();
       resultTileLayer.addTo(resultMap);
+      resultContainerId = containerId;
     }
 
     if (!resultLayerGroup) {
@@ -151,6 +160,17 @@ const WorldMap = (() => {
       fillOpacity: 0.35,
       weight: 2
     }).bindPopup(popupLabel || '').addTo(resultLayerGroup);
+  }
+
+  function colorFromKey(key) {
+    const text = String(key || 'anon');
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % MARKER_COLORS.length;
+    return MARKER_COLORS[idx];
   }
 
   function drawResultMap(containerId, opts = {}) {
@@ -201,6 +221,48 @@ const WorldMap = (() => {
     }
   }
 
+  function drawFinalSummaryMap(containerId, rounds = []) {
+    const map = prepareResultMap(containerId);
+    if (!map || !Array.isArray(rounds) || rounds.length === 0) return;
+
+    const boundsPoints = [];
+
+    rounds.forEach((roundInfo) => {
+      if (!roundInfo || !roundInfo.actual) return;
+
+      const actualLabel = `ROUND ${roundInfo.round} ACTUAL: ${roundInfo.actual.location || 'Unknown'}`;
+      const actualMarker = addResultPoint(map, roundInfo.actual.lat, roundInfo.actual.lon, '#00ff41', actualLabel);
+      boundsPoints.push(actualMarker.getLatLng());
+
+      (roundInfo.guesses || []).forEach((entry) => {
+        if (!entry || !entry.guess) return;
+        const color = colorFromKey(entry.playerId || entry.playerName);
+        const distText = entry.dist !== null && entry.dist !== undefined ? `${entry.dist}km off` : 'No guess';
+        const label = `R${roundInfo.round} ${entry.playerName}: ${distText}`;
+        const marker = addResultPoint(map, entry.guess.lat, entry.guess.lon, color, label);
+        boundsPoints.push(marker.getLatLng());
+
+        L.polyline([
+          [entry.guess.lat, entry.guess.lon],
+          [roundInfo.actual.lat, roundInfo.actual.lon]
+        ], {
+          color,
+          weight: 2,
+          opacity: 0.45,
+          dashArray: '4 7'
+        }).addTo(resultLayerGroup);
+      });
+    });
+
+    if (boundsPoints.length > 1) {
+      map.fitBounds(L.latLngBounds(boundsPoints), { padding: [22, 22], animate: true });
+    } else if (boundsPoints.length === 1) {
+      map.setView(boundsPoints[0], 4, { animate: true });
+    } else {
+      fitWorld(map, true);
+    }
+  }
+
   function resetGameMapView() {
     if (!gameMap) return;
     fitWorld(gameMap, true);
@@ -220,6 +282,7 @@ const WorldMap = (() => {
     clearGameGuess,
     resetGameMapView,
     refreshGameMapSize,
-    drawResultMap
+    drawResultMap,
+    drawFinalSummaryMap
   };
 })();

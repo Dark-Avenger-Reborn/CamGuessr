@@ -856,6 +856,7 @@ function createRoom(hostId, hostName) {
     cameras,
     round: -1,
     currentFeedLockKey: null,
+    finalLeaderboard: [],
     phase: 'lobby', // lobby | playing | roundResult | finished
     timer: null,
     timeLeft: ROUND_DURATION,
@@ -950,6 +951,7 @@ function startRematch(room) {
   room.timeLeft = ROUND_DURATION;
   room.guessesIn = new Set();
   room.currentFeedLockKey = null;
+  room.finalLeaderboard = [];
 
   room.players.forEach(player => {
     player.score = 0;
@@ -977,19 +979,31 @@ function endRound(room) {
   room.players.forEach(player => {
     let dist = null, pts = 0;
     if (player.currentGuess) {
-      dist = haversineDistance(
+      const rawDist = haversineDistance(
         player.currentGuess.lat, player.currentGuess.lon,
         actualCam.lat, actualCam.lon
       );
-      pts = calcPoints(dist);
+      dist = Math.round(rawDist);
+      pts = calcPoints(rawDist);
     }
     player.score += pts;
-    player.roundResults.push({ round: room.round, dist, pts, cumulative: player.score });
+    player.roundResults.push({
+      round: room.round,
+      dist,
+      pts,
+      cumulative: player.score,
+      guess: player.currentGuess,
+      actual: {
+        lat: actualCam.lat,
+        lon: actualCam.lon,
+        location: actualCam.location
+      }
+    });
     results.push({
       playerId: player.id,
       playerName: player.name,
       guess: player.currentGuess,
-      dist: dist ? Math.round(dist) : null,
+      dist,
       pts,
       score: player.score
     });
@@ -1032,6 +1046,7 @@ function endGame(room) {
   const finalLeaderboard = Array.from(room.players.values())
     .map(p => ({ id: p.id, name: p.name, score: p.score, roundResults: p.roundResults }))
     .sort((a, b) => b.score - a.score);
+  room.finalLeaderboard = finalLeaderboard;
 
   io.to(room.code).emit('gameOver', {
     leaderboard: finalLeaderboard,
@@ -1110,8 +1125,8 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'ROOM NOT FOUND — invalid access code' });
       return;
     }
-    if (room.phase !== 'lobby') {
-      socket.emit('error', { message: 'OPERATION IN PROGRESS — cannot join mid-game' });
+    if (room.phase !== 'lobby' && room.phase !== 'finished') {
+      socket.emit('error', { message: 'OPERATION IN PROGRESS — cannot join while round is active' });
       return;
     }
     if (room.players.size >= 8) {
@@ -1135,7 +1150,8 @@ io.on('connection', (socket) => {
 
     socket.emit('roomJoined', {
       code: roomCode,
-      roomState: getRoomPublicState(room)
+      roomState: getRoomPublicState(room),
+      finalLeaderboard: room.phase === 'finished' ? room.finalLeaderboard : undefined
     });
 
     io.to(roomCode).emit('playerJoined', {
