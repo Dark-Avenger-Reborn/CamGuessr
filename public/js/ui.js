@@ -191,39 +191,7 @@ const UI = (() => {
   }
 
   function showHowTo() {
-    alert(
-`HOW TO PLAY
-════════════════════════════════════════
-
-OBJECTIVE:
-Find where the street camera image was taken.
-
-HOW TO PLAY:
-1. Study the image for clues (signs, roads, weather, terrain)
-2. Click the world map to place your guess
-3. Buy hints if needed (100 credits each)
-4. Submit before time runs out
-
-TIMER:
-60 seconds per round. The timer starts after
-the image is shown. Unused time does not carry over.
-
-SCORING (per round, max 5,000):
-• Under 10km    → 5,000 pts (FLAWLESS)
-• Under 100km   → ~4,500 pts
-• Under 1,000km → ~1,000 pts
-• Over 5,000km  → 0 pts
-
-MULTIPLAYER:
-All players see the same camera. Guesses are
-hidden until round end. Accuracy matters most.
-
-Credits do not affect score. Hints are optional.
-
-5 rounds · max 25,000 points
-
-Good luck!`
-    );
+    showScreen('howto-screen');
   }
 
   return {

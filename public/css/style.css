@@ -138,6 +138,46 @@ body {
 }
 .setup-title { font-family: var(--title); font-size: 18px; letter-spacing: 4px; margin-bottom: 4px; }
 
+/* ── HOW TO PLAY SCREEN ── */
+.howto-container {
+  width: min(760px, 96vw);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.howto-subtitle {
+  color: var(--text-dim);
+  font-size: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.howto-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  line-height: 1.6;
+}
+
+.howto-card p {
+  margin-top: 8px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.howto-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .howto-actions {
+    flex-direction: column;
+  }
+}
+
 /* ── MULTIPLAYER CONTAINER ── */
 .mp-container {
   width: min(560px, 96vw); display: flex; flex-direction: column; gap: 14px;

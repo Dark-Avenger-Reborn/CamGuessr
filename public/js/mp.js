@@ -111,8 +111,12 @@ const MP = (() => {
     socket.on('roundStart', (data) => {
       if (resultCountdownTimer) { clearInterval(resultCountdownTimer); resultCountdownTimer = null; }
       currentPlayers = data.roomState?.players || [];
+      const me = currentPlayers.find((p) => p.id === socket.id);
+      if (me && Number.isFinite(me.credits)) {
+        Game.state.credits = me.credits;
+      }
       UI.renderMPOverlay(currentPlayers, socket.id);
-      Game.mpLoadRound(data.camera, data.round, data.totalRounds, data.timeLeft);
+      Game.mpLoadRound(data.camera, data.round, data.totalRounds, data.timeLeft, data.roundDuration);
     });
 
     socket.on('timerTick', (data) => {
@@ -164,6 +168,15 @@ const MP = (() => {
     document.getElementById('lobby-code').textContent = roomState.code;
     UI.renderLobbyPlayers(roomState.players, socket ? socket.id : null, roomState.host);
 
+    const settingsEl = document.getElementById('lobby-settings');
+    if (settingsEl) {
+      const cfg = roomState.settings || {};
+      const credits = Number(cfg.startingCredits) || 500;
+      const rounds = Number(cfg.rounds) || roomState.totalRounds || 5;
+      const roundSeconds = Number(cfg.roundSeconds) || 60;
+      settingsEl.textContent = `Credits: ${credits} · Rounds: ${rounds} · Round Time: ${roundSeconds}s`;
+    }
+
     // Show force-start only to host
     const fsbtn = document.getElementById('force-start-btn');
     if (fsbtn) fsbtn.style.display = isHost ? 'block' : 'none';
@@ -181,9 +194,19 @@ const MP = (() => {
   function createRoom() {
     const nameEl = document.getElementById('create-name-input');
     const name = (nameEl.value || 'AGENT').trim().toUpperCase() || 'AGENT';
+    const creditsVal = parseInt((document.getElementById('create-credits-input')?.value || '500').trim(), 10);
+    const roundsVal = parseInt((document.getElementById('create-rounds-input')?.value || '5').trim(), 10);
+    const roundSecondsVal = parseInt((document.getElementById('create-round-seconds-input')?.value || '60').trim(), 10);
+
+    const settings = {
+      startingCredits: Number.isFinite(creditsVal) ? creditsVal : 500,
+      rounds: Number.isFinite(roundsVal) ? roundsVal : 5,
+      roundSeconds: Number.isFinite(roundSecondsVal) ? roundSecondsVal : 60,
+    };
+
     myName = name;
     connect();
-    socket.emit('createRoom', { name });
+    socket.emit('createRoom', { name, settings });
   }
 
   function joinRoom() {

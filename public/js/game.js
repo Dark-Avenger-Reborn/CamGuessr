@@ -22,6 +22,7 @@ const Game = (() => {
     submitted: false,
     timerInterval: null,
     timeLeft: ROUND_SECONDS,
+    roundDuration: ROUND_SECONDS,
     imageReady: false,
     mapExpanded: false,
     roundResults: [],    // SP only
@@ -285,8 +286,10 @@ const Game = (() => {
     const nameInput = document.getElementById('sp-name-input');
     state.mode = 'sp';
     state.round = 0;
+    state.totalRounds = 5;
     state.score = 0;
     state.credits = 500;
+    state.roundDuration = ROUND_SECONDS;
     state.roundResults = [];
 
     const pool = await loadServerRoundSet();
@@ -345,7 +348,7 @@ const Game = (() => {
     document.getElementById('map-instructions').textContent = 'ZOOM WITH SCROLL • DRAG TO PAN • CLICK TO GUESS';
 
     // Reset timer UI. Countdown starts only after image is visible.
-    updateTimerUI(ROUND_SECONDS, ROUND_SECONDS);
+    updateTimerUI(state.roundDuration, state.roundDuration);
 
     // Load camera
     const interval = UI.startCameraLoad(cam.id);
@@ -620,10 +623,11 @@ const Game = (() => {
   }
 
   // Called by MP module when server sends roundStart
-  function mpLoadRound(camera, round, totalRounds, timeLeft) {
+  function mpLoadRound(camera, round, totalRounds, timeLeft, roundDuration = ROUND_SECONDS) {
     state.mode = 'mp';
     state.round = round;
     state.totalRounds = totalRounds;
+    state.roundDuration = Number.isFinite(roundDuration) ? roundDuration : ROUND_SECONDS;
     state.currentCamera = camera;
     state.cluesAvailable = camera.clues || [];
     UI.showScreen('game-screen');
@@ -634,14 +638,14 @@ const Game = (() => {
     // Override timer with server time
     if (state.timerInterval) { clearInterval(state.timerInterval); }
     state.timeLeft = timeLeft;
-    if (state.imageReady) updateTimerUI(timeLeft, ROUND_SECONDS);
+    if (state.imageReady) updateTimerUI(timeLeft, state.roundDuration);
   }
 
   // Server ticks time
   function mpTimerTick(timeLeft) {
     state.timeLeft = timeLeft;
     if (!state.imageReady) return;
-    updateTimerUI(timeLeft, ROUND_SECONDS);
+    updateTimerUI(timeLeft, state.roundDuration);
     if (timeLeft <= 0 && !state.submitted) {
       submitGuess(true);
     }

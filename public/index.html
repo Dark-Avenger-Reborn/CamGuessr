@@ -44,6 +44,44 @@
   <div class="ver-tag" id="ver-tag" style="display:none;">CAMGUESSR v3.0.0 // MULTIPLAYER READY</div>
 </div>
 
+<!-- ══════════════════ HOW TO PLAY ══════════════════ -->
+<div id="howto-screen" class="screen">
+  <div class="howto-container">
+    <div class="setup-title">How To Play</div>
+    <div class="howto-subtitle">Official Rules and Field Notes</div>
+
+    <div class="howto-card">
+      <div class="section-label">OBJECTIVE</div>
+      <p>Identify where each live camera feed was captured by placing your best guess on the world map.</p>
+    </div>
+
+    <div class="howto-card">
+      <div class="section-label">ROUND FLOW</div>
+      <p>Each round starts with a camera image. Study clues in signs, road markings, weather, architecture, terrain, and traffic behavior. Place your marker, then submit before time expires.</p>
+    </div>
+
+    <div class="howto-card">
+      <div class="section-label">CAMERA REALITY</div>
+      <p>Not all cameras are created equal. Some update every few seconds. Some barely refresh during a full round. Some have glare, rain, spider webs, or a surprise bird collision. That randomness is part of the game and part of the challenge.</p>
+    </div>
+
+    <div class="howto-card">
+      <div class="section-label">SCORING</div>
+      <p>Every round is worth up to 5,000 points based on distance from the real location. A full match is 5 rounds for a maximum total of 25,000 points.</p>
+    </div>
+
+    <div class="howto-card">
+      <div class="section-label">CREDITS AND HINTS</div>
+      <p>Credits can help recover from a bad camera by buying hints, but spend them wisely. You do not know what quality of feed is coming next round, so resource management matters.</p>
+    </div>
+
+    <div class="howto-actions">
+      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')">← BACK TO MENU</button>
+      <button class="submit-btn" onclick="UI.showScreen('sp-setup-screen')">▶ PLAY SINGLE PLAYER</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══════════════════ SP SETUP ══════════════════ -->
 <div id="sp-setup-screen" class="screen">
   <div class="setup-container">
@@ -80,6 +118,14 @@
     <div id="mp-create-form" style="display:none;">
       <div class="section-label">CREATE ROOM</div>
       <input class="mp-input" id="create-name-input" placeholder="PLAYER NAME..." maxlength="16" style="margin-top:12px;">
+      <div class="mp-create-settings" style="display:grid; grid-template-columns:1fr; gap:8px; margin-top:8px;">
+        <div class="section-label">STARTING CREDITS</div>
+        <input class="mp-input" id="create-credits-input" type="number" min="100" max="2000" step="100" value="500" placeholder="STARTING CREDITS (100-2000)">
+        <div class="section-label">TOTAL ROUNDS (MAX 15)</div>
+        <input class="mp-input" id="create-rounds-input" type="number" min="1" max="15" step="1" value="5" placeholder="TOTAL ROUNDS (1-15)">
+        <div class="section-label">ROUND TIME (SECONDS)</div>
+        <input class="mp-input" id="create-round-seconds-input" type="number" min="20" max="180" step="5" value="60" placeholder="ROUND TIME IN SECONDS (20-180)">
+      </div>
       <div class="mp-actions" style="margin-top:12px;">
         <button class="submit-btn" onclick="MP.createRoom()" style="flex:1;">▶ CREATE</button>
         <button class="ghost-btn" onclick="UI.showMPSelect()" style="flex:0.4;">← BACK</button>
@@ -112,6 +158,11 @@
 
     <div class="section-label">PLAYERS</div>
     <div class="mp-players" id="lobby-players"></div>
+
+    <div class="mp-code-display" id="lobby-settings-box" style="margin-top:10px;">
+      <div class="code-label">LOBBY SETTINGS</div>
+      <div id="lobby-settings" style="font-size:12px; color:var(--text); letter-spacing:0.6px;">Credits: 500 · Rounds: 5 · Round Time: 60s</div>
+    </div>
 
     <div id="lobby-ready-section" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
       <button class="submit-btn" id="ready-btn" onclick="MP.setReady()">▶ MARK AS READY</button>

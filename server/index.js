@@ -693,6 +693,7 @@ app.get('/api/cameras/rounds', (req, res) => {
 const rooms = new Map();
 const ROUND_COUNT = 5;
 const ROUND_DURATION = 60; // seconds per round
+const STARTING_CREDITS = 500;
 const GLOBAL_RECENT_CAMERA_HISTORY = Math.min(Math.max(parseInt(process.env.GLOBAL_RECENT_CAMERA_HISTORY || '250', 10) || 250, 20), 5000);
 const recentCameraIds = [];
 
@@ -834,11 +835,21 @@ function calcPoints(distKm) {
   return 0;
 }
 
-function createRoom(hostId, hostName) {
+function normalizeRoomSettings(input) {
+  const raw = input && typeof input === 'object' ? input : {};
+  const startingCredits = Math.min(Math.max(parseInt(raw.startingCredits, 10) || STARTING_CREDITS, 100), 2000);
+  const rounds = Math.min(Math.max(parseInt(raw.rounds, 10) || ROUND_COUNT, 1), 10);
+  const roundSeconds = Math.min(Math.max(parseInt(raw.roundSeconds, 10) || ROUND_DURATION, 20), 180);
+  return { startingCredits, rounds, roundSeconds };
+}
+
+function createRoom(hostId, hostName, inputSettings = {}) {
   let code;
   do { code = generateCode(); } while (rooms.has(code));
 
-  const cameras = pickBalancedCameras(CAMERA_DB, ROUND_COUNT);
+  const settings = normalizeRoomSettings(inputSettings);
+
+  const cameras = pickBalancedCameras(CAMERA_DB, settings.rounds);
   addToRecentHistory(cameras.map(c => c.id));
 
   const room = {
@@ -851,15 +862,16 @@ function createRoom(hostId, hostName) {
       ready: false,
       roundResults: [],
       currentGuess: null,
-      credits: 500
+      credits: settings.startingCredits
     }]]),
+    settings,
     cameras,
     round: -1,
     currentFeedLockKey: null,
     finalLeaderboard: [],
     phase: 'lobby', // lobby | playing | roundResult | finished
     timer: null,
-    timeLeft: ROUND_DURATION,
+    timeLeft: settings.roundSeconds,
     guessesIn: new Set()
   };
 
@@ -873,7 +885,8 @@ function getRoomPublicState(room) {
     host: room.host,
     phase: room.phase,
     round: room.round,
-    totalRounds: ROUND_COUNT,
+    totalRounds: room.settings.rounds,
+    settings: room.settings,
     timeLeft: room.timeLeft,
     players: Array.from(room.players.values()).map(p => ({
       id: p.id,
@@ -904,7 +917,7 @@ function startRound(room) {
   room.round++;
   room.phase = 'playing';
   room.guessesIn = new Set();
-  room.timeLeft = ROUND_DURATION;
+  room.timeLeft = room.settings.roundSeconds;
   room.currentFeedLockKey = `${room.code}-r${room.round}-${Date.now().toString(36)}`;
 
   // Clear per-round guesses
@@ -913,9 +926,10 @@ function startRound(room) {
   const cam = getCurrentCamera(room);
   io.to(room.code).emit('roundStart', {
     round: room.round,
-    totalRounds: ROUND_COUNT,
+    totalRounds: room.settings.rounds,
     camera: cam,
     timeLeft: room.timeLeft,
+    roundDuration: room.settings.roundSeconds,
     roomState: getRoomPublicState(room)
   });
 
@@ -944,11 +958,11 @@ function maybeClampTimerForLastPlayer(room) {
 function startRematch(room) {
   if (!room) return;
 
-  room.cameras = pickBalancedCameras(CAMERA_DB, ROUND_COUNT);
+  room.cameras = pickBalancedCameras(CAMERA_DB, room.settings.rounds);
   addToRecentHistory(room.cameras.map(c => c.id));
   room.round = -1;
   room.phase = 'lobby';
-  room.timeLeft = ROUND_DURATION;
+  room.timeLeft = room.settings.roundSeconds;
   room.guessesIn = new Set();
   room.currentFeedLockKey = null;
   room.finalLeaderboard = [];
@@ -958,7 +972,7 @@ function startRematch(room) {
     player.ready = false;
     player.roundResults = [];
     player.currentGuess = null;
-    player.credits = 500;
+    player.credits = room.settings.startingCredits;
   });
 
   io.to(room.code).emit('lobbyUpdate', { roomState: getRoomPublicState(room) });
@@ -1029,7 +1043,7 @@ function endRound(room) {
   // Auto-advance after 8 seconds
   setTimeout(() => {
     if (!rooms.has(room.code)) return;
-    if (room.round + 1 >= ROUND_COUNT) {
+    if (room.round + 1 >= room.settings.rounds) {
       endGame(room);
     } else {
       startRound(room);
@@ -1100,9 +1114,9 @@ io.on('connection', (socket) => {
   console.log(`[+] Client connected: ${socket.id}`);
 
   // ── Create room ──
-  socket.on('createRoom', ({ name }) => {
+  socket.on('createRoom', ({ name, settings }) => {
     const playerName = (name || 'AGENT').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 16);
-    const room = createRoom(socket.id, playerName);
+    const room = createRoom(socket.id, playerName, settings);
     socket.join(room.code);
     socket.data.roomCode = room.code;
     socket.data.name = playerName;
@@ -1141,7 +1155,7 @@ io.on('connection', (socket) => {
       ready: false,
       roundResults: [],
       currentGuess: null,
-      credits: 500
+      credits: room.settings.startingCredits
     });
 
     socket.join(roomCode);
