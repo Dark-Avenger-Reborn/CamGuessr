@@ -29,7 +29,7 @@
   <div class="menu-box" id="main-menu" style="display:none;">
     <button class="menu-btn" onclick="UI.showScreen('sp-setup-screen')">
       &gt; SINGLE PLAYER
-      <span class="btn-tag">5 rounds, best score wins</span>
+      <span class="btn-tag">5 rounds, see how close you can get</span>
     </button>
     <button class="menu-btn" onclick="UI.showScreen('mp-screen')">
       &gt; MULTIPLAYER
@@ -124,7 +124,7 @@
         <div class="section-label">TOTAL ROUNDS (MAX 15)</div>
         <input class="mp-input" id="create-rounds-input" type="number" min="1" max="15" step="1" value="5" placeholder="TOTAL ROUNDS (1-15)">
         <div class="section-label">ROUND TIME (SECONDS)</div>
-        <input class="mp-input" id="create-round-seconds-input" type="number" min="20" max="180" step="5" value="60" placeholder="ROUND TIME IN SECONDS (20-180)">
+        <input class="mp-input" id="create-round-seconds-input" type="number" min="20" max="180" step="5" value="1" placeholder="ROUND TIME IN SECONDS (20-180)">
       </div>
       <div class="mp-actions" style="margin-top:12px;">
         <button class="submit-btn" onclick="MP.createRoom()" style="flex:1;">▶ CREATE</button>
