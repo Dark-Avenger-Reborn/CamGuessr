@@ -415,13 +415,33 @@ const WINDY_KEY = process.env.WINDY_API_KEY || null;
 const WINDY_NEARBY_RADIUS_KM = Math.min(Math.max(parseInt(process.env.WINDY_NEARBY_RADIUS_KM || '120', 10) || 120, 10), 250);
 const WINDY_NEARBY_LIMIT = Math.min(Math.max(parseInt(process.env.WINDY_NEARBY_LIMIT || '12', 10) || 12, 3), 50);
 const WINDY_RECENT_TTL_MS = Math.min(Math.max(parseInt(process.env.WINDY_RECENT_TTL_MS || '900000', 10) || 900000, 60000), 3600000);
+const FEED_LOCK_TTL_MS = 30 * 60 * 1000;
+const FEED_LOCK_MAX = 2000;
 
 const windyCameraCache = new Map();
 const recentWindyWebcamUse = new Map();
+const lockedCameraFeeds = new Map();
 
 function cleanupRecentWindyUse(now = Date.now()) {
   for (const [webcamId, expiresAt] of recentWindyWebcamUse.entries()) {
     if (expiresAt <= now) recentWindyWebcamUse.delete(webcamId);
+  }
+}
+
+function cleanupFeedLocks(now = Date.now()) {
+  for (const [lockKey, entry] of lockedCameraFeeds.entries()) {
+    if (!entry || (now - entry.ts) > FEED_LOCK_TTL_MS) {
+      lockedCameraFeeds.delete(lockKey);
+    }
+  }
+
+  if (lockedCameraFeeds.size <= FEED_LOCK_MAX) return;
+
+  const oldestFirst = Array.from(lockedCameraFeeds.entries())
+    .sort((a, b) => (a[1]?.ts || 0) - (b[1]?.ts || 0));
+  const overflow = lockedCameraFeeds.size - FEED_LOCK_MAX;
+  for (let i = 0; i < overflow; i++) {
+    lockedCameraFeeds.delete(oldestFirst[i][0]);
   }
 }
 
@@ -490,6 +510,13 @@ function buildFallbackCameraImageUrl(camera) {
   return `https://placehold.co/1280x720/05070a/22c55e?text=${label}`;
 }
 
+function withCacheBust(url, token) {
+  if (!url || typeof url !== 'string') return url;
+  const separator = url.includes('?') ? '&' : '?';
+  const value = encodeURIComponent(token || Date.now());
+  return `${url}${separator}cb=${value}`;
+}
+
 app.get('/api/windy/webcams', async (req, res) => {
   if (!WINDY_KEY) return res.status(503).json({ error: 'Windy API key not configured' });
   const fetch = require('node-fetch');
@@ -545,7 +572,26 @@ app.get('/api/windy/snapshot/:id', async (req, res) => {
       return res.status(404).json({ error: 'Snapshot not available for this webcam' });
     }
 
-    res.redirect(imageUrl);
+    const upstreamUrl = withCacheBust(imageUrl, req.query.t);
+    const upstream = await fetch(upstreamUrl, {
+      redirect: 'follow',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Camguessr/1.0)',
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache'
+      }
+    });
+
+    if (!upstream.ok || !upstream.body) {
+      return res.status(502).json({ error: 'Snapshot fetch failed' });
+    }
+
+    res.set('Content-Type', upstream.headers.get('content-type') || 'image/jpeg');
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    upstream.body.pipe(res);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -562,11 +608,30 @@ app.get('/api/camera-image/:id', async (req, res) => {
   }
 
   const sourceUrl = cam.imgUrl;
+  const pollToken = typeof req.query.t === 'string' ? req.query.t.trim() : String(Date.now());
+  const lockKey = typeof req.query.lock === 'string' ? req.query.lock.trim() : '';
+
+  cleanupFeedLocks();
+
+  if (lockKey) {
+    const locked = lockedCameraFeeds.get(lockKey);
+    if (locked && locked.cameraId === cam.id && locked.webcamId) {
+      locked.ts = Date.now();
+      return res.redirect(`/api/windy/snapshot/${encodeURIComponent(locked.webcamId)}?t=${encodeURIComponent(pollToken)}`);
+    }
+  }
 
   // Prefer a nearby Windy webcam at runtime when available.
   const windyWebcamId = await resolveNearbyWindyWebcamId(cam);
   if (windyWebcamId) {
-    return res.redirect(`/api/windy/snapshot/${encodeURIComponent(windyWebcamId)}`);
+    if (lockKey) {
+      lockedCameraFeeds.set(lockKey, {
+        cameraId: cam.id,
+        webcamId: windyWebcamId,
+        ts: Date.now()
+      });
+    }
+    return res.redirect(`/api/windy/snapshot/${encodeURIComponent(windyWebcamId)}?t=${encodeURIComponent(pollToken)}`);
   }
 
   if (!sourceUrl) {
@@ -579,11 +644,13 @@ app.get('/api/camera-image/:id', async (req, res) => {
   }
 
   try {
-    const upstream = await fetch(sourceUrl, {
+    const upstream = await fetch(withCacheBust(sourceUrl, pollToken), {
       redirect: 'follow',
       headers: {
         'User-Agent': 'Mozilla/5.0 (compatible; Camguessr/1.0)',
-        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache'
       }
     });
 

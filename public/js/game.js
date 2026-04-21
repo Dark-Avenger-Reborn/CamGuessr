@@ -5,6 +5,7 @@
 const Game = (() => {
   const ROUND_SECONDS = 60;
   const CAMERA_LOAD_DELAY_MS = 900;
+  const LIVE_REFRESH_MS = 2000;
 
   const state = {
     mode: 'sp',          // 'sp' | 'mp'
@@ -25,6 +26,8 @@ const Game = (() => {
     mapExpanded: false,
     roundResults: [],    // SP only
     loadInterval: null,
+    liveFeedInterval: null,
+    feedLockKey: null,
   };
 
   let hasInitializedLeafletMap = false;
@@ -66,6 +69,42 @@ const Game = (() => {
       if (typeof disabled === 'boolean') mapBtn.disabled = disabled;
       if (typeof text === 'string') mapBtn.textContent = text;
     }
+  }
+
+  function cacheBustUrl(url) {
+    return `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
+  }
+
+  function stopLiveFeed() {
+    if (!state.liveFeedInterval) return;
+    clearInterval(state.liveFeedInterval);
+    state.liveFeedInterval = null;
+  }
+
+  function startLiveFeed(imgEl, primaryUrl, fallbackUrl, fallbackWasUsed = false) {
+    stopLiveFeed();
+
+    let activeUrl = fallbackWasUsed && fallbackUrl ? fallbackUrl : (primaryUrl || fallbackUrl);
+    if (!activeUrl) return;
+
+    // Lightweight polling refresh gives a pseudo-live feed (~1 fps).
+    state.liveFeedInterval = setInterval(() => {
+      if (state.submitted || !state.currentCamera) return;
+
+      const nextSrc = cacheBustUrl(activeUrl);
+      const probe = new Image();
+      probe.decoding = 'async';
+      probe.onload = () => {
+        if (state.submitted || !state.currentCamera) return;
+        imgEl.src = nextSrc;
+      };
+      probe.onerror = () => {
+        if (activeUrl !== fallbackUrl && fallbackUrl) {
+          activeUrl = fallbackUrl;
+        }
+      };
+      probe.src = nextSrc;
+    }, LIVE_REFRESH_MS);
   }
 
   const FALLBACK_SP_CAMERAS = [
@@ -268,10 +307,12 @@ const Game = (() => {
     state.cluesRevealed = 0;
     state.submitted = false;
     state.imageReady = false;
+    state.feedLockKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     setMapExpanded(false);
 
     if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
     if (state.loadInterval) { clearInterval(state.loadInterval); state.loadInterval = null; }
+    stopLiveFeed();
 
     const cam = camera || state.cameras[state.round];
     state.currentCamera = cam;
@@ -311,10 +352,11 @@ const Game = (() => {
     setTimeout(() => {
       const imgEl = document.getElementById('camera-img');
 
-      const proxyUrl = cam.id ? `/api/camera-image/${encodeURIComponent(cam.id)}` : '';
+      const proxyUrl = cam.id
+        ? `/api/camera-image/${encodeURIComponent(cam.id)}?lock=${encodeURIComponent(state.feedLockKey || '')}`
+        : '';
       const primaryUrl = proxyUrl || (cam.imgUrl || '');
       const fallbackUrl = cam.imgUrl || '';
-      const cacheBust = url => `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`;
 
       const beginRoundTimer = () => {
         if (state.mode !== 'sp') return;
@@ -328,12 +370,16 @@ const Game = (() => {
         UI.onImageLoaded();
         if (state.mode === 'mp') updateTimerUI(state.timeLeft, ROUND_SECONDS);
         beginRoundTimer();
+
+        imgEl.onload = null;
+        imgEl.onerror = null;
+        startLiveFeed(imgEl, primaryUrl, fallbackUrl, imgEl.dataset.fallbackTried === '1');
       };
 
       imgEl.onerror = () => {
         if (imgEl.dataset.fallbackTried !== '1' && fallbackUrl && fallbackUrl !== primaryUrl) {
           imgEl.dataset.fallbackTried = '1';
-          imgEl.src = cacheBust(fallbackUrl);
+          imgEl.src = cacheBustUrl(fallbackUrl);
           return;
         }
         if (state.loadInterval) { clearInterval(state.loadInterval); state.loadInterval = null; }
@@ -341,6 +387,10 @@ const Game = (() => {
         UI.onImageError();
         if (state.mode === 'mp') updateTimerUI(state.timeLeft, ROUND_SECONDS);
         beginRoundTimer();
+
+        imgEl.onload = null;
+        imgEl.onerror = null;
+        stopLiveFeed();
       };
 
       imgEl.dataset.fallbackTried = '0';
@@ -354,10 +404,10 @@ const Game = (() => {
       }
 
       if (primaryUrl) {
-        imgEl.src = cacheBust(primaryUrl);
+        imgEl.src = cacheBustUrl(primaryUrl);
       } else {
         if (fallbackUrl && fallbackUrl !== primaryUrl) {
-          imgEl.src = cacheBust(fallbackUrl);
+          imgEl.src = cacheBustUrl(fallbackUrl);
         }
       }
     }, CAMERA_LOAD_DELAY_MS);
@@ -424,6 +474,7 @@ const Game = (() => {
     state.submitted = true;
 
     if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+    stopLiveFeed();
 
     const lat = state.guessLat;
     const lon = state.guessLon;
