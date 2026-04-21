@@ -116,7 +116,7 @@
     <div id="lobby-ready-section" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;">
       <button class="submit-btn" id="ready-btn" onclick="MP.setReady()">▶ MARK AS READY</button>
       <button class="submit-btn" id="force-start-btn" onclick="MP.forceStart()" style="display:none; background:var(--amber); color:#000;">⚡ FORCE START (HOST)</button>
-      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')">✕ LEAVE ROOM</button>
+      <button class="ghost-btn" onclick="MP.leaveRoom(); UI.showScreen('boot-screen');">✕ LEAVE ROOM</button>
     </div>
 
     <div class="section-label" style="margin-top:20px;">CHAT</div>
@@ -278,13 +278,23 @@
     <div id="final-mp" style="display:none;">
       <div class="final-subtitle">FINAL LEADERBOARD</div>
       <div class="mp-players" id="final-lb"></div>
+      <div id="final-rematch-status" class="section-label" style="margin-top:10px;">WAITING FOR REMATCH READY...</div>
+      <div class="mp-actions" id="final-rematch-actions" style="width:100%; margin-top:10px;">
+        <button class="submit-btn" id="final-rematch-ready-btn" onclick="MP.setReady()" style="flex:1;">▶ READY FOR REMATCH</button>
+        <button class="submit-btn" id="final-rematch-force-btn" onclick="MP.forceStart()" style="display:none; flex:1; background:var(--amber); color:#000;">⚡ FORCE REMATCH (HOST)</button>
+      </div>
     </div>
 
     <div class="rounds-breakdown" id="rounds-breakdown"></div>
 
-    <div class="mp-actions" style="width:100%; margin-top:16px;">
+    <div class="mp-actions" id="final-actions-sp" style="width:100%; margin-top:16px; display:none;">
       <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ PLAY AGAIN</button>
       <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.5;">MENU</button>
+    </div>
+
+    <div class="mp-actions" id="final-actions-mp" style="width:100%; margin-top:16px; display:none;">
+      <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:1;">MENU</button>
+      <button class="ghost-btn" onclick="MP.leaveRoom(); UI.showScreen('boot-screen');" style="flex:1;">LEAVE ROOM</button>
     </div>
   </div>
 </div>

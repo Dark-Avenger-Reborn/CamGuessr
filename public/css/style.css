@@ -276,7 +276,13 @@ body {
 .mpo-dot.guessed { background: var(--green); }
 .mpo-dot.waiting { background: var(--amber); }
 .mpo-name { flex: 1; color: rgba(255,255,255,0.85); }
-.mpo-pts { color: #ffffff; font-family: var(--title); font-size: 10px; }
+.mpo-state {
+  font-family: var(--title);
+  font-size: 9px;
+  letter-spacing: 0.6px;
+}
+.mpo-state.done { color: var(--green); }
+.mpo-state.work { color: #ffd44f; }
 
 /* ── GUESS PANEL ── */
 .guess-panel {

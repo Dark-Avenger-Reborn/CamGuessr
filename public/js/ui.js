@@ -165,7 +165,7 @@ const UI = (() => {
       div.innerHTML = `
         <div class="mpo-dot ${guessed ? 'guessed' : 'waiting'}"></div>
         <div class="mpo-name">${p.name}${p.id === myId ? '*' : ''}</div>
-        <div class="mpo-pts">${p.score}</div>
+        <div class="mpo-state ${guessed ? 'done' : 'work'}">${guessed ? 'SUBMITTED' : 'WORKING'}</div>
       `;
       list.appendChild(div);
     });

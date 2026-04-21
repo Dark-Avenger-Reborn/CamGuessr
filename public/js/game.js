@@ -307,7 +307,9 @@ const Game = (() => {
     state.cluesRevealed = 0;
     state.submitted = false;
     state.imageReady = false;
-    state.feedLockKey = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    state.feedLockKey = state.mode === 'sp'
+      ? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+      : null;
     setMapExpanded(false);
 
     if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
@@ -355,7 +357,9 @@ const Game = (() => {
       const proxyUrl = cam.id
         ? `/api/camera-image/${encodeURIComponent(cam.id)}?lock=${encodeURIComponent(state.feedLockKey || '')}`
         : '';
-      const primaryUrl = proxyUrl || (cam.imgUrl || '');
+      const primaryUrl = state.mode === 'mp'
+        ? (cam.imgUrl || proxyUrl || '')
+        : (proxyUrl || (cam.imgUrl || ''));
       const fallbackUrl = cam.imgUrl || '';
 
       const beginRoundTimer = () => {
@@ -484,7 +488,7 @@ const Game = (() => {
       if (lat !== null && lon !== null) {
         MP.socket && MP.socket.emit('submitGuess', { lat, lon });
       } else {
-        MP.socket && MP.socket.emit('submitGuess', { lat: 0, lon: 0 }); // null guess
+        MP.socket && MP.socket.emit('submitGuess', { lat: null, lon: null });
       }
       UI.toast(auto ? 'Time up - guess sent' : 'Guess submitted - waiting for others...', 'ok');
       return;
@@ -560,6 +564,8 @@ const Game = (() => {
     UI.showScreen('final-screen');
     document.getElementById('final-sp').style.display = 'block';
     document.getElementById('final-mp').style.display = 'none';
+    document.getElementById('final-actions-sp').style.display = 'flex';
+    document.getElementById('final-actions-mp').style.display = 'none';
 
     const score = state.score;
     document.getElementById('final-score').textContent = score;

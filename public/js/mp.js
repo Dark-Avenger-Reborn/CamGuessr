@@ -11,6 +11,7 @@ const MP = (() => {
   let currentPlayers = [];
   let hostId = null;
   let resultCountdownTimer = null;
+  let finalLeaderboard = [];
 
   function connect() {
     if (socket && socket.connected) return socket;
@@ -72,24 +73,31 @@ const MP = (() => {
 
     socket.on('hostChanged', (data) => {
       hostId = data.newHost;
+      isHost = socket.id === hostId;
       if (socket.id === hostId) {
-        isHost = true;
         UI.toast('You are now the HOST', 'warn');
         const fsbtn = document.getElementById('force-start-btn');
         if (fsbtn) fsbtn.style.display = 'block';
       }
+      updateFinalRematchControls();
     });
 
     socket.on('lobbyUpdate', (data) => {
       currentPlayers = data.roomState.players;
       hostId = data.roomState.host;
-      renderLobby(data.roomState);
+      isHost = socket.id === hostId;
+      if (data.roomState.phase === 'finished' && document.getElementById('final-screen').classList.contains('active')) {
+        renderFinalRematch(data.roomState);
+      } else {
+        renderLobby(data.roomState);
+      }
     });
 
     // ── Game events ──
     socket.on('roundStart', (data) => {
       if (resultCountdownTimer) { clearInterval(resultCountdownTimer); resultCountdownTimer = null; }
-      currentPlayers = [];
+      currentPlayers = data.roomState?.players || [];
+      UI.renderMPOverlay(currentPlayers, socket.id);
       Game.mpLoadRound(data.camera, data.round, data.totalRounds, data.timeLeft);
     });
 
@@ -109,7 +117,10 @@ const MP = (() => {
     });
 
     socket.on('gameOver', (data) => {
-      showFinalMP(data.leaderboard);
+      currentPlayers = data.roomState?.players || currentPlayers;
+      hostId = data.roomState?.host || hostId;
+      isHost = socket.id === hostId;
+      showFinalMP(data.leaderboard, data.roomState);
     });
 
     // ── Chat ──
@@ -173,6 +184,12 @@ const MP = (() => {
   function setReady() {
     if (!socket) return;
     socket.emit('playerReady');
+
+    if (document.getElementById('final-screen').classList.contains('active')) {
+      updateFinalRematchControls();
+      return;
+    }
+
     const btn = document.getElementById('ready-btn');
     if (btn) {
       btn.textContent = '✓ READY';
@@ -184,6 +201,80 @@ const MP = (() => {
   function forceStart() {
     if (!socket || !isHost) return;
     socket.emit('startGame');
+  }
+
+  function updateFinalRematchControls() {
+    const readyBtn = document.getElementById('final-rematch-ready-btn');
+    const forceBtn = document.getElementById('final-rematch-force-btn');
+    const status = document.getElementById('final-rematch-status');
+    if (!readyBtn || !forceBtn || !status) return;
+
+    const me = currentPlayers.find(p => p.id === (socket ? socket.id : null));
+    const readyCount = currentPlayers.filter(p => p.ready).length;
+    const total = currentPlayers.length;
+
+    status.textContent = total > 0
+      ? `${readyCount}/${total} READY FOR REMATCH`
+      : 'WAITING FOR REMATCH READY...';
+
+    if (me && me.ready) {
+      readyBtn.textContent = '✓ READY — WAITING';
+      readyBtn.disabled = true;
+      readyBtn.style.opacity = '0.6';
+    } else {
+      readyBtn.textContent = '▶ READY FOR REMATCH';
+      readyBtn.disabled = false;
+      readyBtn.style.opacity = '1';
+    }
+
+    forceBtn.style.display = isHost ? 'block' : 'none';
+  }
+
+  function renderFinalRematch(roomState) {
+    currentPlayers = roomState.players || currentPlayers;
+    hostId = roomState.host || hostId;
+    isHost = socket && socket.id === hostId;
+
+    const playerById = new Map(currentPlayers.map(p => [p.id, p]));
+    const lbEl = document.getElementById('final-lb');
+    lbEl.innerHTML = '';
+
+    finalLeaderboard.forEach((p, i) => {
+      const isMe = p.id === (socket ? socket.id : null);
+      const rowState = playerById.get(p.id);
+      const row = document.createElement('div');
+      row.className = 'player-row';
+      const medals = ['🥇', '🥈', '🥉'];
+      row.innerHTML = `
+        <div class="player-dot ${rowState && rowState.ready ? '' : 'offline'}"></div>
+        <div class="player-name" style="${isMe ? 'color:var(--green);' : ''}">
+          ${medals[i] || `#${i+1}`} ${p.name}${isMe ? ' (YOU)' : ''}
+        </div>
+        <div class="player-status ${rowState && rowState.ready ? 'ready' : ''}">${rowState && rowState.ready ? 'READY' : 'STANDBY'}</div>
+        <div class="player-score-badge">${p.score} pts</div>
+      `;
+      lbEl.appendChild(row);
+    });
+
+    updateFinalRematchControls();
+  }
+
+  function leaveRoom() {
+    if (resultCountdownTimer) {
+      clearInterval(resultCountdownTimer);
+      resultCountdownTimer = null;
+    }
+
+    if (socket) {
+      socket.emit('leaveRoom');
+      socket.disconnect();
+      socket = null;
+    }
+
+    roomCode = null;
+    isHost = false;
+    currentPlayers = [];
+    hostId = null;
   }
 
   function sendChat() {
@@ -257,31 +348,23 @@ const MP = (() => {
     }, 1000);
   }
 
-  function showFinalMP(leaderboard) {
+  function showFinalMP(leaderboard, roomState = null) {
     if (resultCountdownTimer) { clearInterval(resultCountdownTimer); resultCountdownTimer = null; }
+    finalLeaderboard = Array.isArray(leaderboard) ? leaderboard : [];
     UI.showScreen('final-screen');
     document.getElementById('final-sp').style.display = 'none';
     document.getElementById('final-mp').style.display = 'block';
+    document.getElementById('final-actions-sp').style.display = 'none';
+    document.getElementById('final-actions-mp').style.display = 'flex';
 
-    const lbEl = document.getElementById('final-lb');
-    lbEl.innerHTML = '';
-    leaderboard.forEach((p, i) => {
-      const isMe = p.id === (socket ? socket.id : null);
-      const row = document.createElement('div');
-      row.className = 'player-row';
-      const medals = ['🥇', '🥈', '🥉'];
-      row.innerHTML = `
-        <div class="player-dot"></div>
-        <div class="player-name" style="${isMe ? 'color:var(--green);' : ''}">
-          ${medals[i] || `#${i+1}`} ${p.name}${isMe ? ' (YOU)' : ''}
-        </div>
-        <div class="player-score-badge">${p.score} pts</div>
-      `;
-      lbEl.appendChild(row);
-    });
+    if (roomState) {
+      renderFinalRematch(roomState);
+    } else {
+      renderFinalRematch({ players: currentPlayers, host: hostId });
+    }
 
     // Show MY breakdown
-    const me = leaderboard.find(p => p.id === (socket ? socket.id : null));
+    const me = finalLeaderboard.find(p => p.id === (socket ? socket.id : null));
     const breakdown = document.getElementById('rounds-breakdown');
     breakdown.innerHTML = '';
     if (me && me.roundResults) {
@@ -300,6 +383,6 @@ const MP = (() => {
 
   return {
     get socket() { return socket; },
-    connect, createRoom, joinRoom, setReady, forceStart, sendChat,
+    connect, createRoom, joinRoom, setReady, forceStart, leaveRoom, sendChat,
   };
 })();

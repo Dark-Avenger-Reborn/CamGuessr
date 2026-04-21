@@ -855,6 +855,7 @@ function createRoom(hostId, hostName) {
     }]]),
     cameras,
     round: -1,
+    currentFeedLockKey: null,
     phase: 'lobby', // lobby | playing | roundResult | finished
     timer: null,
     timeLeft: ROUND_DURATION,
@@ -887,10 +888,13 @@ function getRoomPublicState(room) {
 function getCurrentCamera(room) {
   if (room.round < 0 || room.round >= room.cameras.length) return null;
   const cam = room.cameras[room.round];
+  const lockParam = room.currentFeedLockKey
+    ? `?lock=${encodeURIComponent(room.currentFeedLockKey)}`
+    : '';
   // Never send lat/lon to clients during active round
   return {
     id: cam.id,
-    imgUrl: `/api/camera-image/${encodeURIComponent(cam.id)}`,
+    imgUrl: `/api/camera-image/${encodeURIComponent(cam.id)}${lockParam}`,
     clues: cam.clues
   };
 }
@@ -900,6 +904,7 @@ function startRound(room) {
   room.phase = 'playing';
   room.guessesIn = new Set();
   room.timeLeft = ROUND_DURATION;
+  room.currentFeedLockKey = `${room.code}-r${room.round}-${Date.now().toString(36)}`;
 
   // Clear per-round guesses
   room.players.forEach(p => { p.currentGuess = null; });
@@ -909,7 +914,8 @@ function startRound(room) {
     round: room.round,
     totalRounds: ROUND_COUNT,
     camera: cam,
-    timeLeft: room.timeLeft
+    timeLeft: room.timeLeft,
+    roomState: getRoomPublicState(room)
   });
 
   // Start countdown
@@ -923,6 +929,41 @@ function startRound(room) {
       endRound(room);
     }
   }, 1000);
+}
+
+function maybeClampTimerForLastPlayer(room) {
+  if (!room || room.phase !== 'playing') return;
+  const remaining = room.players.size - room.guessesIn.size;
+  if (remaining === 1 && room.timeLeft > 20) {
+    room.timeLeft = 20;
+    io.to(room.code).emit('timerTick', { timeLeft: room.timeLeft });
+  }
+}
+
+function startRematch(room) {
+  if (!room) return;
+
+  room.cameras = pickBalancedCameras(CAMERA_DB, ROUND_COUNT);
+  addToRecentHistory(room.cameras.map(c => c.id));
+  room.round = -1;
+  room.phase = 'lobby';
+  room.timeLeft = ROUND_DURATION;
+  room.guessesIn = new Set();
+  room.currentFeedLockKey = null;
+
+  room.players.forEach(player => {
+    player.score = 0;
+    player.ready = false;
+    player.roundResults = [];
+    player.currentGuess = null;
+    player.credits = 500;
+  });
+
+  io.to(room.code).emit('lobbyUpdate', { roomState: getRoomPublicState(room) });
+  setTimeout(() => {
+    if (!rooms.has(room.code) || room.phase !== 'lobby') return;
+    startRound(room);
+  }, 800);
 }
 
 function endRound(room) {
@@ -984,14 +1025,57 @@ function endRound(room) {
 
 function endGame(room) {
   room.phase = 'finished';
+  room.players.forEach(player => {
+    player.ready = false;
+    player.currentGuess = null;
+  });
   const finalLeaderboard = Array.from(room.players.values())
     .map(p => ({ id: p.id, name: p.name, score: p.score, roundResults: p.roundResults }))
     .sort((a, b) => b.score - a.score);
 
-  io.to(room.code).emit('gameOver', { leaderboard: finalLeaderboard });
+  io.to(room.code).emit('gameOver', {
+    leaderboard: finalLeaderboard,
+    roomState: getRoomPublicState(room)
+  });
 
   // Clean up room after 5 minutes
   setTimeout(() => rooms.delete(room.code), 300000);
+}
+
+function removePlayerFromRoom(socket) {
+  const roomCode = socket.data.roomCode;
+  const room = rooms.get(roomCode);
+  if (!room) return;
+  if (!room.players.has(socket.id)) return;
+
+  room.players.delete(socket.id);
+  console.log(`[-] ${socket.data.name} left ${socket.data.roomCode}`);
+  socket.data.roomCode = null;
+
+  if (room.players.size === 0) {
+    if (room.timer) clearInterval(room.timer);
+    rooms.delete(roomCode);
+    console.log(`[ROOM] Destroyed: ${roomCode} (empty)`);
+    return;
+  }
+
+  // Transfer host if needed
+  if (room.host === socket.id) {
+    room.host = room.players.keys().next().value;
+    io.to(room.code).emit('hostChanged', { newHost: room.host });
+  }
+
+  io.to(room.code).emit('playerLeft', {
+    playerName: socket.data.name,
+    roomState: getRoomPublicState(room)
+  });
+
+  // If everyone left during playing, end round
+  maybeClampTimerForLastPlayer(room);
+  if (room.phase === 'playing' && room.guessesIn.size >= room.players.size && room.players.size > 0) {
+    if (room.timer) { clearInterval(room.timer); room.timer = null; }
+    endRound(room);
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -1069,13 +1153,21 @@ io.on('connection', (socket) => {
     const player = room.players.get(socket.id);
     if (!player) return;
 
+    if (room.phase !== 'lobby' && room.phase !== 'finished') return;
     player.ready = true;
     io.to(room.code).emit('lobbyUpdate', { roomState: getRoomPublicState(room) });
 
-    // Auto-start if all ready (and at least 2 players, or host is alone)
+    // Auto-start if all ready
     const allReady = Array.from(room.players.values()).every(p => p.ready);
     if (allReady && room.players.size >= 1) {
-      setTimeout(() => startRound(room), 1000);
+      if (room.phase === 'lobby') {
+        setTimeout(() => {
+          if (!rooms.has(room.code) || room.phase !== 'lobby') return;
+          startRound(room);
+        }, 1000);
+      } else if (room.phase === 'finished') {
+        startRematch(room);
+      }
     }
   });
 
@@ -1083,8 +1175,13 @@ io.on('connection', (socket) => {
   socket.on('startGame', () => {
     const room = rooms.get(socket.data.roomCode);
     if (!room || room.host !== socket.id) return;
-    if (room.phase !== 'lobby') return;
-    startRound(room);
+    if (room.phase === 'lobby') {
+      startRound(room);
+      return;
+    }
+    if (room.phase === 'finished') {
+      startRematch(room);
+    }
   });
 
   // ── Submit guess ──
@@ -1094,7 +1191,8 @@ io.on('connection', (socket) => {
     const player = room.players.get(socket.id);
     if (!player || room.guessesIn.has(socket.id)) return;
 
-    player.currentGuess = { lat, lon };
+    const hasValidGuess = Number.isFinite(lat) && Number.isFinite(lon);
+    player.currentGuess = hasValidGuess ? { lat, lon } : null;
     room.guessesIn.add(socket.id);
 
     // Notify all players someone guessed (no coords revealed yet)
@@ -1104,6 +1202,8 @@ io.on('connection', (socket) => {
       totalPlayers: room.players.size,
       roomState: getRoomPublicState(room)
     });
+
+    maybeClampTimerForLastPlayer(room);
 
     // If everyone guessed, end round early
     if (room.guessesIn.size >= room.players.size) {
@@ -1142,37 +1242,14 @@ io.on('connection', (socket) => {
     });
   });
 
+  // ── Leave room explicitly ──
+  socket.on('leaveRoom', () => {
+    removePlayerFromRoom(socket);
+  });
+
   // ── Disconnect ──
   socket.on('disconnect', () => {
-    const room = rooms.get(socket.data.roomCode);
-    if (!room) return;
-
-    room.players.delete(socket.id);
-    console.log(`[-] ${socket.data.name} left ${socket.data.roomCode}`);
-
-    if (room.players.size === 0) {
-      if (room.timer) clearInterval(room.timer);
-      rooms.delete(socket.data.roomCode);
-      console.log(`[ROOM] Destroyed: ${socket.data.roomCode} (empty)`);
-      return;
-    }
-
-    // Transfer host if needed
-    if (room.host === socket.id) {
-      room.host = room.players.keys().next().value;
-      io.to(room.code).emit('hostChanged', { newHost: room.host });
-    }
-
-    io.to(room.code).emit('playerLeft', {
-      playerName: socket.data.name,
-      roomState: getRoomPublicState(room)
-    });
-
-    // If everyone left during playing, end round
-    if (room.phase === 'playing' && room.guessesIn.size >= room.players.size && room.players.size > 0) {
-      if (room.timer) { clearInterval(room.timer); room.timer = null; }
-      endRound(room);
-    }
+    removePlayerFromRoom(socket);
   });
 });
 
