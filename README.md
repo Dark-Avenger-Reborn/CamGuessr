@@ -32,8 +32,12 @@ npm run dev
 
 ```
 camguessr/
+├── scripts/
+│   └── sync-cameras.js   # Bulk camera catalog ingestion (Windy + NYC + Ontario + Alberta)
 ├── server/
 │   └── index.js          # Express + Socket.IO server + game room logic
+├── data/
+│   └── camera-catalog.json # Generated camera pool used at runtime
 ├── public/
 │   ├── index.html        # Main HTML
 │   ├── css/
@@ -60,11 +64,20 @@ camguessr/
    - `GET /api/windy/webcams?lat=X&lon=Y&radiusKm=50&limit=20` — search nearby webcams
    - `GET /api/windy/snapshot/:cameraId` — fetch a snapshot image
 
-4. To use Windy webcams in the game, update the `CAMERA_DB` array in
-   `server/index.js` to use Windy webcam IDs and set `imgUrl` to:
+4. Build a large runtime catalog (thousands of cameras) with:
+   ```bash
+   npm run sync:cameras
    ```
-   /api/windy/snapshot/<windy-webcam-id>
-   ```
+   This writes `data/camera-catalog.json` and the server loads it automatically.
+   The sync applies balancing caps so one provider/country cannot dominate.
+
+5. Check catalog size:
+   - `GET /api/cameras/meta`
+
+6. Runtime round generation is balanced (GeoGuessr-style constraints):
+   - country diversity prioritized
+   - provider diversity prioritized
+   - anti-repeat history across recent rooms
 
 ---
 
@@ -115,6 +128,21 @@ Player A                   Server                    Player B
 |----------|---------|-------------|
 | `PORT` | `3000` | Server port |
 | `WINDY_API_KEY` | `null` | Windy Webcams API key |
+| `WINDY_NEARBY_RADIUS_KM` | `120` | Nearby search radius for runtime feed resolution |
+| `WINDY_NEARBY_LIMIT` | `12` | Nearby webcam candidates cached per camera |
+| `WINDY_RECENT_TTL_MS` | `900000` | Webcam anti-repeat cooldown window |
+| `SYNC_WINDY_RADIUS_KM` | `250` | Radius per sync tile during catalog ingest |
+| `SYNC_WINDY_LIMIT` | `50` | Page size per Windy sync request |
+| `SYNC_WINDY_MAX_TILES` | `180` | How many global geo tiles to scan during sync |
+| `SYNC_WINDY_OFFSETS` | `0,50,100,150` | Windy result offsets scanned per tile |
+| `SYNC_WINDY_DELAY_MS` | `60` | Delay between Windy sync requests |
+| `SYNC_INCLUDE_NYC` | `true` | Include NYC DOT feed in sync |
+| `SYNC_INCLUDE_ONTARIO` | `true` | Include Ontario 511 feed in sync |
+| `SYNC_INCLUDE_ALBERTA` | `true` | Include Alberta 511 feed in sync |
+| `SYNC_MAX_PER_PROVIDER` | `1200` | Max catalog entries per provider after rebalance |
+| `SYNC_MAX_PER_COUNTRY` | `180` | Max catalog entries per country (except US cap below) |
+| `SYNC_MAX_US` | `260` | Explicit US cap to avoid overrepresentation |
+| `GLOBAL_RECENT_CAMERA_HISTORY` | `250` | Recent camera IDs avoided across new room generation |
 
 ---
 

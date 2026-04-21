@@ -148,9 +148,9 @@ const Game = (() => {
     return a;
   }
 
-  async function loadServerCameras() {
+  async function loadServerRoundSet() {
     try {
-      const response = await fetch('/api/cameras', { cache: 'no-store' });
+      const response = await fetch(`/api/cameras/rounds?count=${state.totalRounds}`, { cache: 'no-store' });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const cameras = await response.json();
@@ -169,7 +169,7 @@ const Game = (() => {
 
       return usable;
     } catch (err) {
-      console.warn('[SP] Camera API unavailable, using fallback list.', err);
+      console.warn('[SP] Balanced camera API unavailable, using fallback list.', err);
       UI.toast('Using offline node set while camera API reconnects', 'warn', 3200);
       return FALLBACK_SP_CAMERAS;
     }
@@ -200,8 +200,8 @@ const Game = (() => {
     state.credits = 500;
     state.roundResults = [];
 
-    const pool = await loadServerCameras();
-    state.cameras = shuffle(pool).slice(0, state.totalRounds);
+    const pool = await loadServerRoundSet();
+    state.cameras = pool.length > state.totalRounds ? shuffle(pool).slice(0, state.totalRounds) : pool;
 
     UI.showScreen('game-screen');
     document.getElementById('game-chat-section').style.display = 'none';

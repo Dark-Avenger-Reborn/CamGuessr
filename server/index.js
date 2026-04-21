@@ -22,7 +22,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 //   /api/windy/snapshot/:id
 // after adding your API key to the proxy endpoint below.
 // ─────────────────────────────────────────────
-const CAMERA_DB = [
+const STATIC_CAMERA_DB = [
   {
     id: 'cam_ny_001',
     location: 'Times Square, New York, USA',
@@ -333,6 +333,78 @@ const CAMERA_DB = [
   }
 ];
 
+const CAMERA_CATALOG_PATH = path.join(__dirname, '../data/camera-catalog.json');
+
+function normalizeCameraEntry(raw, fallbackIdx = 0) {
+  const normalizeText = (value, fallback = 'Unknown') => {
+    const text = String(value || '').trim();
+    return text || fallback;
+  };
+
+  const id = String(raw?.id || raw?.cameraId || `cam_${fallbackIdx}`);
+  const lat = Number(raw?.lat);
+  const lon = Number(raw?.lon);
+  const clues = Array.isArray(raw?.clues) && raw.clues.length > 0
+    ? raw.clues
+    : [
+      `Urban camera feed near ${raw?.city || raw?.country || 'an active metro area'}`,
+      'Road orientation and vehicle behavior can reveal traffic side',
+      'Built environment and signage style hint at region and country',
+      'Weather, vegetation, and daylight cues narrow latitude band',
+      'Use map-scale context to estimate continent before city-level guess'
+    ];
+
+  if (!id || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return null;
+  }
+
+  return {
+    id,
+    location: normalizeText(raw?.location || raw?.title || `${raw?.city || 'Unknown'}, ${raw?.country || 'Unknown'}`),
+    city: normalizeText(raw?.city),
+    state: normalizeText(raw?.state || raw?.region),
+    country: normalizeText(raw?.country),
+    lat,
+    lon,
+    imgUrl: raw?.imgUrl || null,
+    clues,
+    provider: normalizeText(raw?.provider, 'seed').toLowerCase()
+  };
+}
+
+function loadCameraCatalog(staticFallback) {
+  const fs = require('fs');
+  const fallback = staticFallback
+    .map((c, idx) => normalizeCameraEntry(c, idx))
+    .filter(Boolean);
+
+  try {
+    if (!fs.existsSync(CAMERA_CATALOG_PATH)) return fallback;
+
+    const text = fs.readFileSync(CAMERA_CATALOG_PATH, 'utf8');
+    const parsed = JSON.parse(text);
+    const rows = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.cameras)
+        ? parsed.cameras
+        : [];
+
+    const dedup = new Map();
+    rows.forEach((row, idx) => {
+      const normalized = normalizeCameraEntry(row, idx);
+      if (normalized) dedup.set(normalized.id, normalized);
+    });
+
+    if (dedup.size === 0) return fallback;
+    return Array.from(dedup.values());
+  } catch (err) {
+    console.warn(`[CATALOG] Failed to load ${CAMERA_CATALOG_PATH}: ${err.message}`);
+    return fallback;
+  }
+}
+
+let CAMERA_DB = loadCameraCatalog(STATIC_CAMERA_DB);
+
 // ─────────────────────────────────────────────
 // OPTIONAL: Windy Webcams API proxy
 // Set WINDY_API_KEY env var, then fetch webcams via:
@@ -340,93 +412,75 @@ const CAMERA_DB = [
 //   GET /api/windy/snapshot/:cameraId
 // ─────────────────────────────────────────────
 const WINDY_KEY = process.env.WINDY_API_KEY || null;
+const WINDY_NEARBY_RADIUS_KM = Math.min(Math.max(parseInt(process.env.WINDY_NEARBY_RADIUS_KM || '120', 10) || 120, 10), 250);
+const WINDY_NEARBY_LIMIT = Math.min(Math.max(parseInt(process.env.WINDY_NEARBY_LIMIT || '12', 10) || 12, 3), 50);
+const WINDY_RECENT_TTL_MS = Math.min(Math.max(parseInt(process.env.WINDY_RECENT_TTL_MS || '900000', 10) || 900000, 60000), 3600000);
+
 const windyCameraCache = new Map();
-const wikimediaImageCache = new Map();
+const recentWindyWebcamUse = new Map();
+
+function cleanupRecentWindyUse(now = Date.now()) {
+  for (const [webcamId, expiresAt] of recentWindyWebcamUse.entries()) {
+    if (expiresAt <= now) recentWindyWebcamUse.delete(webcamId);
+  }
+}
 
 async function resolveNearbyWindyWebcamId(camera) {
   if (!WINDY_KEY || !camera) return null;
 
+  cleanupRecentWindyUse();
+
   const cached = windyCameraCache.get(camera.id);
-  if (cached !== undefined) {
-    return cached || null;
+  if (cached?.candidateIds?.length) {
+    const total = cached.candidateIds.length;
+    for (let i = 0; i < total; i++) {
+      const idx = (cached.nextIndex + i) % total;
+      const webcamId = cached.candidateIds[idx];
+      if (!recentWindyWebcamUse.has(webcamId)) {
+        cached.nextIndex = (idx + 1) % total;
+        recentWindyWebcamUse.set(webcamId, Date.now() + WINDY_RECENT_TTL_MS);
+        return webcamId;
+      }
+    }
+
+    // If all candidates are recently used, rotate anyway.
+    const webcamId = cached.candidateIds[cached.nextIndex % total];
+    cached.nextIndex = (cached.nextIndex + 1) % total;
+    recentWindyWebcamUse.set(webcamId, Date.now() + WINDY_RECENT_TTL_MS);
+    return webcamId;
+  }
+
+  if (cached && cached.missing) {
+    return null;
   }
 
   const fetch = require('node-fetch');
-  const searchRadiusKm = 120;
-  const url = `https://api.windy.com/webcams/api/v3/webcams?nearby=${camera.lat},${camera.lon},${searchRadiusKm}&include=images&limit=12`;
+  const url = `https://api.windy.com/webcams/api/v3/webcams?nearby=${camera.lat},${camera.lon},${WINDY_NEARBY_RADIUS_KM}&include=images&limit=${WINDY_NEARBY_LIMIT}`;
 
   try {
     const r = await fetch(url, { headers: { 'x-windy-api-key': WINDY_KEY } });
     if (!r.ok) {
-      windyCameraCache.set(camera.id, '');
+      windyCameraCache.set(camera.id, { missing: true, candidateIds: [], nextIndex: 0 });
       return null;
     }
 
     const payload = await r.json();
     const webcams = payload?.webcams || [];
+    const candidateIds = webcams
+      .filter(w => w?.webcamId && (w?.images?.current?.preview || w?.images?.daylight?.preview))
+      .map(w => String(w.webcamId));
 
-    const webcamWithImage = webcams.find(w => w?.webcamId && w?.images?.current?.preview);
-    const webcamId = webcamWithImage?.webcamId ? String(webcamWithImage.webcamId) : '';
-
-    windyCameraCache.set(camera.id, webcamId);
-    return webcamId || null;
-  } catch (e) {
-    windyCameraCache.set(camera.id, '');
-    return null;
-  }
-}
-
-async function resolveNearbyWikimediaImage(camera) {
-  if (!camera) return null;
-
-  const cached = wikimediaImageCache.get(camera.id);
-  if (cached !== undefined) {
-    return cached || null;
-  }
-
-  const fetch = require('node-fetch');
-  const params = new URLSearchParams({
-    action: 'query',
-    generator: 'geosearch',
-    ggscoord: `${camera.lat}|${camera.lon}`,
-    ggsradius: '10000',
-    ggslimit: '24',
-    prop: 'imageinfo',
-    iiprop: 'url|mime',
-    iiurlwidth: '1280',
-    format: 'json',
-    formatversion: '2'
-  });
-
-  const url = `https://commons.wikimedia.org/w/api.php?${params.toString()}`;
-
-  try {
-    const r = await fetch(url, {
-      headers: {
-        'User-Agent': 'Camguessr/1.0 (camera fallback resolver)'
-      }
-    });
-
-    if (!r.ok) {
-      wikimediaImageCache.set(camera.id, '');
+    if (candidateIds.length === 0) {
+      windyCameraCache.set(camera.id, { missing: true, candidateIds: [], nextIndex: 0 });
       return null;
     }
 
-    const payload = await r.json();
-    const pages = Array.isArray(payload?.query?.pages) ? payload.query.pages : [];
-    const imageEntry = pages
-      .map(p => p?.imageinfo?.[0])
-      .find(info => {
-        if (!info?.url) return false;
-        const lc = info.url.toLowerCase();
-        return lc.endsWith('.jpg') || lc.endsWith('.jpeg') || lc.endsWith('.png') || lc.endsWith('.webp');
-      });
-
-    const imageUrl = imageEntry?.thumburl || imageEntry?.url || '';
-    wikimediaImageCache.set(camera.id, imageUrl);
-    return imageUrl || null;
+    windyCameraCache.set(camera.id, { missing: false, candidateIds, nextIndex: 1 % candidateIds.length });
+    const webcamId = candidateIds[0];
+    recentWindyWebcamUse.set(webcamId, Date.now() + WINDY_RECENT_TTL_MS);
+    return webcamId;
   } catch (e) {
-    wikimediaImageCache.set(camera.id, '');
+    windyCameraCache.set(camera.id, { missing: true, candidateIds: [], nextIndex: 0 });
     return null;
   }
 }
@@ -446,7 +500,7 @@ app.get('/api/windy/webcams', async (req, res) => {
   }
 
   const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 50);
-  const safeRadiusKm = Math.min(Math.max(parseInt(radiusKm, 10) || 50, 1), 500);
+  const safeRadiusKm = Math.min(Math.max(parseInt(radiusKm, 10) || 50, 1), 250);
   const safeOffset = Math.min(Math.max(parseInt(offset, 10) || 0, 0), 1000);
   const url = `https://api.windy.com/webcams/api/v3/webcams?nearby=${lat},${lon},${safeRadiusKm}&include=images,location,player&limit=${safeLimit}&offset=${safeOffset}`;
 
@@ -515,10 +569,7 @@ app.get('/api/camera-image/:id', async (req, res) => {
     return res.redirect(`/api/windy/snapshot/${encodeURIComponent(windyWebcamId)}`);
   }
 
-  // Fall back to nearby Wikimedia geolocated photography for global coverage.
   if (!sourceUrl) {
-    const wikiImageUrl = await resolveNearbyWikimediaImage(cam);
-    if (wikiImageUrl) return res.redirect(wikiImageUrl);
     return res.redirect(buildFallbackCameraImageUrl(cam));
   }
 
@@ -537,8 +588,6 @@ app.get('/api/camera-image/:id', async (req, res) => {
     });
 
     if (!upstream.ok || !upstream.body) {
-      const wikiImageUrl = await resolveNearbyWikimediaImage(cam);
-      if (wikiImageUrl) return res.redirect(wikiImageUrl);
       return res.redirect(buildFallbackCameraImageUrl(cam));
     }
 
@@ -546,8 +595,6 @@ app.get('/api/camera-image/:id', async (req, res) => {
     res.set('Cache-Control', 'no-store');
     upstream.body.pipe(res);
   } catch (e) {
-    const wikiImageUrl = await resolveNearbyWikimediaImage(cam);
-    if (wikiImageUrl) return res.redirect(wikiImageUrl);
     res.redirect(buildFallbackCameraImageUrl(cam));
   }
 });
@@ -557,12 +604,30 @@ app.get('/api/cameras', (req, res) => {
   res.json(CAMERA_DB.map(c => ({ ...c, imgUrl: undefined })));
 });
 
+app.get('/api/cameras/meta', (req, res) => {
+  res.json({
+    total: CAMERA_DB.length,
+    catalogPath: CAMERA_CATALOG_PATH,
+    hasWindyKey: Boolean(WINDY_KEY)
+  });
+});
+
+app.get('/api/cameras/rounds', (req, res) => {
+  const requested = parseInt(req.query.count, 10);
+  const count = Math.min(Math.max(Number.isFinite(requested) ? requested : ROUND_COUNT, 1), 10);
+  const rounds = pickBalancedCameras(CAMERA_DB, count);
+  addToRecentHistory(rounds.map(c => c.id));
+  res.json(rounds);
+});
+
 // ─────────────────────────────────────────────
 // GAME ROOMS
 // ─────────────────────────────────────────────
 const rooms = new Map();
 const ROUND_COUNT = 5;
 const ROUND_DURATION = 90; // seconds per round
+const GLOBAL_RECENT_CAMERA_HISTORY = Math.min(Math.max(parseInt(process.env.GLOBAL_RECENT_CAMERA_HISTORY || '250', 10) || 250, 20), 5000);
+const recentCameraIds = [];
 
 function generateCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -575,6 +640,113 @@ function shuffleArray(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function getMacroRegion(camera) {
+  const lat = Number(camera?.lat);
+  const lon = Number(camera?.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return 'other';
+
+  if (lon >= -170 && lon <= -30 && lat >= 8) return 'north_america';
+  if (lon >= -95 && lon <= -30 && lat < 8) return 'south_america';
+  if (lon >= -25 && lon <= 60 && lat >= 34) return 'europe';
+  if (lon >= -20 && lon <= 55 && lat > -37 && lat < 37) return 'africa';
+  if (lon >= 55 && lon <= 180 && lat >= -10) return 'asia';
+  if (lon >= 110 && lon <= 180 && lat < -10) return 'oceania';
+  return 'other';
+}
+
+function pickBalancedCameras(pool, count) {
+  const candidates = shuffleArray(pool);
+  const selected = [];
+  const selectedIds = new Set();
+  const countryCount = new Map();
+  const providerCount = new Map();
+  const regionCount = new Map();
+  const recentSet = new Set(recentCameraIds);
+
+  const tryPick = (cam, limits) => {
+    if (!cam || selectedIds.has(cam.id)) return false;
+
+    const country = String(cam.country || 'Unknown').trim();
+    const provider = String(cam.provider || 'seed').trim().toLowerCase();
+    const region = getMacroRegion(cam);
+
+    if ((countryCount.get(country) || 0) >= limits.maxPerCountry) return false;
+    if ((providerCount.get(provider) || 0) >= limits.maxPerProvider) return false;
+    if (country === 'United States' && (countryCount.get(country) || 0) >= limits.maxUS) return false;
+    if ((regionCount.get(region) || 0) >= limits.maxPerRegion) return false;
+
+    selected.push(cam);
+    selectedIds.add(cam.id);
+    countryCount.set(country, (countryCount.get(country) || 0) + 1);
+    providerCount.set(provider, (providerCount.get(provider) || 0) + 1);
+    regionCount.set(region, (regionCount.get(region) || 0) + 1);
+    return true;
+  };
+
+  const passes = [
+    {
+      maxPerCountry: 1,
+      maxPerProvider: 2,
+      maxUS: 1,
+      maxPerRegion: 2,
+      avoidRecent: true
+    },
+    {
+      maxPerCountry: 1,
+      maxPerProvider: 3,
+      maxUS: 1,
+      maxPerRegion: 3,
+      avoidRecent: false
+    }
+  ];
+
+  for (const limits of passes) {
+    for (const cam of candidates) {
+      if (selected.length >= count) break;
+      if (limits.avoidRecent && recentSet.has(cam.id)) continue;
+      tryPick(cam, limits);
+    }
+    if (selected.length >= count) break;
+  }
+
+  // Preserve unique countries as long as possible, even if provider/region caps are exhausted.
+  if (selected.length < count) {
+    for (const cam of candidates) {
+      if (selected.length >= count) break;
+      if (selectedIds.has(cam.id)) continue;
+
+      const country = String(cam.country || 'Unknown').trim();
+      if ((countryCount.get(country) || 0) >= 1) continue;
+      if (country === 'United States' && (countryCount.get(country) || 0) >= 1) continue;
+
+      selected.push(cam);
+      selectedIds.add(cam.id);
+      countryCount.set(country, (countryCount.get(country) || 0) + 1);
+    }
+  }
+
+  if (selected.length < count) {
+    for (const cam of candidates) {
+      if (selected.length >= count) break;
+      if (!selectedIds.has(cam.id)) {
+        selected.push(cam);
+        selectedIds.add(cam.id);
+      }
+    }
+  }
+
+  return selected.slice(0, count);
+}
+
+function addToRecentHistory(cameraIds) {
+  for (const id of cameraIds) {
+    recentCameraIds.push(id);
+  }
+  while (recentCameraIds.length > GLOBAL_RECENT_CAMERA_HISTORY) {
+    recentCameraIds.shift();
+  }
 }
 
 function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -599,7 +771,8 @@ function createRoom(hostId, hostName) {
   let code;
   do { code = generateCode(); } while (rooms.has(code));
 
-  const cameras = shuffleArray(CAMERA_DB).slice(0, ROUND_COUNT);
+  const cameras = pickBalancedCameras(CAMERA_DB, ROUND_COUNT);
+  addToRecentHistory(cameras.map(c => c.id));
 
   const room = {
     code,
@@ -945,6 +1118,7 @@ server.listen(PORT, () => {
   console.log(`║   CAMGUESSR SERVER — PORT ${PORT}        ║`);
   console.log(`╚══════════════════════════════════════╝`);
   console.log(`  http://localhost:${PORT}`);
+  console.log(`  Active camera pool: ${CAMERA_DB.length}`);
   if (WINDY_KEY) console.log(`  Windy Webcams API: CONNECTED`);
   else console.log(`  Windy Webcams API: not configured (set WINDY_API_KEY)`);
   console.log('');

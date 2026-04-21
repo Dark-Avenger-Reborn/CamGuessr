@@ -5,7 +5,8 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "dev": "nodemon server/index.js"
+    "dev": "nodemon server/index.js",
+    "sync:cameras": "node scripts/sync-cameras.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
