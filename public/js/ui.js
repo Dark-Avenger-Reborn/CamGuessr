@@ -118,17 +118,17 @@ const UI = (() => {
     const cam = Game.state.currentCamera;
     document.getElementById('camera-img').style.display = 'none';
     document.getElementById('cam-loading').innerHTML = `
-      <div style="text-align:center; padding:16px;">
-        <div style="font-size:36px; color:var(--green-dim); margin-bottom:14px;">📡</div>
-        <div style="font-size:13px; color:var(--green);">IMAGE UNAVAILABLE - YOU CAN STILL GUESS</div>
-        <div style="font-size:11px; color:var(--text-dim); margin-top:8px;">Camera: ${cam ? cam.id : '---'}</div>
-        <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:10px; color:var(--text-dim); text-align:left; max-width:260px; margin-left:auto; margin-right:auto;">
+      <div style="text-align:center; padding:20px;">
+        <div style="font-size:34px; margin-bottom:14px;">📡</div>
+        <div style="font-size:13px; color:var(--cyan); letter-spacing:1px;">IMAGE UNAVAILABLE — YOU CAN STILL GUESS</div>
+        <div style="font-size:11px; color:var(--text-dim); margin-top:8px; letter-spacing:0.5px;">Camera: ${cam ? cam.id : '---'}</div>
+        <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:10px; color:var(--text-dim); text-align:left; max-width:260px; margin-left:auto; margin-right:auto;">
           <div>Status: Offline</div>
           <div>Frame: Not received</div>
-          <div>Hint 1: Available</div>
-          <div>Hint 2+: Buy with credits</div>
+          <div>Hint 01: Free (auto)</div>
+          <div>More hints: −100 credits</div>
         </div>
-        <div style="margin-top:14px; font-size:10px; color:var(--amber);">Use hints and map context to make your best guess.</div>
+        <div style="margin-top:16px; font-size:10px; color:var(--amber); letter-spacing:0.5px;">▸ Use hints and map context to make your best guess.</div>
       </div>`;
     document.getElementById('cam-loading').style.display = 'block';
     document.getElementById('cam-overlay').style.display = 'block';
@@ -171,11 +171,12 @@ const UI = (() => {
     });
   }
 
-  function renderClue(clueText, index) {
+  function renderClue(clueText, index, isFree = false) {
     const container = document.getElementById('clues-container');
     const div = document.createElement('div');
-    div.className = 'clue-item';
-    div.innerHTML = `<span class="clue-num">HINT ${String(index + 1).padStart(2, '0')}</span>${clueText}`;
+    div.className = `clue-item${isFree ? ' free-clue' : ''}`;
+    const label = isFree ? `HINT ${String(index + 1).padStart(2, '0')} · FREE` : `HINT ${String(index + 1).padStart(2, '0')}`;
+    div.innerHTML = `<span class="clue-num">${label}</span>${clueText}`;
     container.appendChild(div);
     setTimeout(() => div.classList.add('revealed'), 50);
   }

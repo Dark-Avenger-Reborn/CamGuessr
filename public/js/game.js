@@ -330,7 +330,19 @@ const Game = (() => {
     setSubmitState({ disabled: true, text: '▶ SUBMIT GUESS' });
     document.getElementById('selected-coords').textContent = 'SELECT LOCATION ON MAP';
     document.getElementById('buy-clue-btn').disabled = false;
-    document.getElementById('buy-clue-btn').textContent = '⬇ Reveal next hint [-100 credits]';
+    document.getElementById('buy-clue-btn').textContent = '⬇ Unlock next hint \u00a0[\u2212100 credits]';
+
+    // Auto-reveal the first hint for free
+    if (state.cluesAvailable.length > 0) {
+      state.cluesRevealed = 1;
+      setTimeout(() => UI.renderClue(state.cluesAvailable[0], 0, true), 600);
+    } else {
+      state.cluesRevealed = 0;
+    }
+    if (state.cluesAvailable.length <= 1) {
+      document.getElementById('buy-clue-btn').disabled = true;
+      document.getElementById('buy-clue-btn').textContent = 'All hints unlocked';
+    }
 
     // Round dots
     const dots = document.getElementById('round-dots');
