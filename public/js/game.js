@@ -6,6 +6,7 @@ const Game = (() => {
   const ROUND_SECONDS = 60;
   const CAMERA_LOAD_DELAY_MS = 900;
   const LIVE_REFRESH_MS = 2000;
+  const HINT_REVEAL_DELAY_MS = 600;
 
   const state = {
     mode: 'sp',          // 'sp' | 'mp'
@@ -330,12 +331,11 @@ const Game = (() => {
     setSubmitState({ disabled: true, text: '▶ SUBMIT GUESS' });
     document.getElementById('selected-coords').textContent = 'SELECT LOCATION ON MAP';
     document.getElementById('buy-clue-btn').disabled = false;
-    document.getElementById('buy-clue-btn').textContent = '⬇ Unlock next hint \u00a0[\u2212100 credits]';
-
+    document.getElementById('buy-clue-btn').textContent = '⬇ Unlock next hint  [−100 credits]';
     // Auto-reveal the first hint for free
     if (state.cluesAvailable.length > 0) {
       state.cluesRevealed = 1;
-      setTimeout(() => UI.renderClue(state.cluesAvailable[0], 0, true), 600);
+      setTimeout(() => UI.renderClue(state.cluesAvailable[0], 0, true), HINT_REVEAL_DELAY_MS);
     } else {
       state.cluesRevealed = 0;
     }
