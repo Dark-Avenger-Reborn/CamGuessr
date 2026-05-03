@@ -63,7 +63,7 @@ const WorldMap = (() => {
 
     if (!gameMap) {
       gameMap = L.map(el, {
-        worldCopyJump: true,
+        worldCopyJump: false,
         zoomControl: true,
         minZoom: 1,
         maxZoom: 18
@@ -132,7 +132,7 @@ const WorldMap = (() => {
 
     if (!resultMap) {
       resultMap = L.map(el, {
-        worldCopyJump: true,
+        worldCopyJump: false,
         zoomControl: true,
         minZoom: 1,
         maxZoom: 18
