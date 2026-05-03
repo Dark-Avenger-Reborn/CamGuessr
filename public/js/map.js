@@ -25,6 +25,7 @@ const WorldMap = (() => {
       return L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
       minZoom: 1,
+      noWrap: true,
         subdomains: 'abcd',
         attribution: '&copy; OpenStreetMap contributors &copy; CARTO'
     });

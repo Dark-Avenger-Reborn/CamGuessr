@@ -274,7 +274,7 @@ body {
   width: 100%; height: 100%; position: relative;
   display: flex; align-items: center; justify-content: center;
 }
-.camera-img { width: 100%; height: 100%; object-fit: cover; display: none; }
+.camera-img { width: 100%; height: 100%; object-fit: contain; display: none; }
 
 .cam-loading { text-align: center; position: absolute; }
 .cam-loading-spinner {
@@ -338,8 +338,8 @@ body {
 .map-area {
   position: relative;
   width: 100%;
-  aspect-ratio: 340 / 220;
-  max-height: 190px;
+  aspect-ratio: 16 / 9;
+  max-height: 220px;
   background: radial-gradient(circle at 50% 40%, #183044 0%, #122433 100%);
   border-bottom: 1px solid var(--border); overflow: hidden; cursor: crosshair; flex-shrink: 0;
   transition: all 0.2s ease;
@@ -465,8 +465,8 @@ body {
   background: radial-gradient(circle at 50% 40%, #183044 0%, #122433 100%);
   border: 1px solid var(--border);
   width: 100%;
-  aspect-ratio: 340 / 220;
-  max-height: 340px;
+  aspect-ratio: 16 / 9;
+  max-height: 400px;
   position: relative; overflow: hidden;
 }
 
