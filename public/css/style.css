@@ -90,6 +90,41 @@ body {
   position: relative; overflow: hidden;
   box-shadow: inset 0 0 40px rgba(0,0,0,0.3);
 }
+
+.ad-slot {
+  width: min(560px, 96vw);
+  margin: 10px 0 18px;
+  display: flex;
+  justify-content: center;
+}
+
+.ad-slot--wide {
+  min-height: 90px;
+}
+
+.ad-slot--compact {
+  min-height: 60px;
+}
+
+.ad-slot-placeholder {
+  width: 100%;
+  min-height: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed rgba(0,212,255,0.28);
+  background: rgba(0,212,255,0.04);
+  color: var(--text-dim);
+  font-family: var(--title);
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.ad-slot--compact .ad-slot-placeholder {
+  min-height: 60px;
+}
+
 .boot-log::before {
   content: 'SYSTEM STATUS'; position: absolute; top: -1px; left: 14px;
   background: var(--bg); padding: 0 6px; font-size: 10px; color: var(--cyan-dim);
@@ -224,6 +259,11 @@ body {
 @media (max-width: 640px) {
   .howto-actions {
     flex-direction: column;
+  }
+
+  .ad-slot {
+    width: 100%;
+    margin: 10px 0 14px;
   }
 }
 
@@ -869,6 +909,10 @@ body {
     left: 2vw;
     width: 96vw;
     height: 64vh;
+  }
+
+  .ad-slot {
+    width: 100%;
   }
 }
 
