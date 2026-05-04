@@ -8,7 +8,8 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1219096632643983" crossorigin="anonymous"></script>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1219096632643983"
+     crossorigin="anonymous"></script>
 </head>
 <body>
 
@@ -26,11 +27,6 @@
   </div>
 
   <div class="boot-log" id="boot-log"></div>
-
-  <div class="ad-slot ad-slot--wide" aria-label="Advertisement">
-    <!-- AdSense unit goes here: replace this placeholder with your ad unit snippet -->
-    <div class="ad-slot-placeholder">ADVERTISEMENT</div>
-  </div>
 
   <div class="menu-box" id="main-menu" style="display:none;">
     <button class="menu-btn" onclick="UI.showScreen('sp-setup-screen')">
@@ -85,11 +81,6 @@
       <button class="ghost-btn" onclick="UI.showScreen('boot-screen')">← BACK TO MENU</button>
       <button class="submit-btn" onclick="UI.showScreen('sp-setup-screen')">▶ PLAY SINGLE PLAYER</button>
     </div>
-
-    <div class="ad-slot ad-slot--wide" aria-label="Advertisement">
-      <!-- AdSense unit goes here -->
-      <div class="ad-slot-placeholder">ADVERTISEMENT</div>
-    </div>
   </div>
 </div>
 
@@ -99,10 +90,6 @@
     <div class="setup-title">Single Player Setup</div>
     <div class="section-label">PLAYER NAME</div>
     <input class="mp-input" id="sp-name-input" placeholder="ENTER NAME..." maxlength="16" value="PLAYER_1">
-    <div class="ad-slot ad-slot--compact" aria-label="Advertisement">
-      <!-- AdSense unit goes here -->
-      <div class="ad-slot-placeholder">ADVERTISEMENT</div>
-    </div>
     <div class="mp-actions" style="margin-top:16px;">
       <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ START GAME</button>
       <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.4;">← BACK</button>
@@ -158,11 +145,6 @@
     </div>
 
     <div id="mp-error" class="mp-error" style="display:none;"></div>
-
-    <div class="ad-slot ad-slot--wide" aria-label="Advertisement">
-      <!-- AdSense unit goes here -->
-      <div class="ad-slot-placeholder">ADVERTISEMENT</div>
-    </div>
   </div>
 </div>
 
@@ -195,11 +177,6 @@
     <div style="display:flex; gap:8px; margin-top:8px;">
       <input class="mp-input" id="lobby-chat-input" placeholder="TYPE A MESSAGE..." style="flex:1;" onkeydown="if(event.key==='Enter') MP.sendChat()">
       <button class="ghost-btn" onclick="MP.sendChat()" style="width:60px;">SEND</button>
-    </div>
-
-    <div class="ad-slot ad-slot--wide" aria-label="Advertisement">
-      <!-- AdSense unit goes here -->
-      <div class="ad-slot-placeholder">ADVERTISEMENT</div>
     </div>
   </div>
 </div>
@@ -277,10 +254,10 @@
       <div class="map-expand-backdrop" id="map-expand-backdrop" onclick="Game.toggleMapExpanded(false)"></div>
 
       <div class="clues-section">
-        <div class="clues-label">INTEL FEED <span class="clues-free-note">✦ HINT 01 FREE</span></div>
+        <div class="clues-label">Hints</div>
         <div id="clues-container"></div>
         <button class="buy-clue-btn" id="buy-clue-btn" onclick="Game.buyClue()">
-          ⬇ Unlock next hint  [−100 credits]
+          ⬇ Reveal next hint [-100 credits]
         </button>
       </div>
 
@@ -337,11 +314,6 @@
     </div>
 
     <div id="result-countdown" class="result-countdown">Next round in <span id="countdown-val">8</span>s...</div>
-
-    <div class="ad-slot ad-slot--wide" aria-label="Advertisement">
-      <!-- AdSense unit goes here -->
-      <div class="ad-slot-placeholder">ADVERTISEMENT</div>
-    </div>
   </div>
 </div>
 
@@ -392,11 +364,6 @@
     <div class="mp-actions" id="final-actions-sp" style="width:100%; margin-top:16px; display:none;">
       <button class="submit-btn" onclick="Game.startSinglePlayer()" style="flex:1;">▶ PLAY AGAIN</button>
       <button class="ghost-btn" onclick="UI.showScreen('boot-screen')" style="flex:0.5;">MENU</button>
-    </div>
-
-    <div class="ad-slot ad-slot--wide" aria-label="Advertisement">
-      <!-- AdSense unit goes here -->
-      <div class="ad-slot-placeholder">ADVERTISEMENT</div>
     </div>
   </div>
 </div>
