@@ -927,6 +927,13 @@ function getCurrentCamera(room) {
 }
 
 function startRound(room) {
+  if (!room) return;
+
+  if (room.roundAdvanceTimeout) {
+    clearTimeout(room.roundAdvanceTimeout);
+    room.roundAdvanceTimeout = null;
+  }
+
   room.round++;
   room.phase = 'playing';
   room.guessesIn = new Set();
@@ -971,6 +978,15 @@ function maybeClampTimerForLastPlayer(room) {
 function startRematch(room) {
   if (!room) return;
 
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
+  if (room.roundAdvanceTimeout) {
+    clearTimeout(room.roundAdvanceTimeout);
+    room.roundAdvanceTimeout = null;
+  }
+
   room.cameras = pickBalancedCameras(CAMERA_DB, room.settings.rounds);
   addToRecentHistory(room.cameras.map(c => c.id));
   room.round = -1;
@@ -996,7 +1012,13 @@ function startRematch(room) {
 }
 
 function endRound(room) {
+  if (!room || room.phase !== 'playing') return;
+
   if (room.timer) { clearInterval(room.timer); room.timer = null; }
+  if (room.roundAdvanceTimeout) {
+    clearTimeout(room.roundAdvanceTimeout);
+    room.roundAdvanceTimeout = null;
+  }
   room.phase = 'roundResult';
 
   const actualCam = room.cameras[room.round];
@@ -1054,8 +1076,12 @@ function endRound(room) {
   });
 
   // Auto-advance after 8 seconds
-  setTimeout(() => {
+  const expectedRound = room.round;
+  room.roundAdvanceTimeout = setTimeout(() => {
     if (!rooms.has(room.code)) return;
+    if (room.phase !== 'roundResult' || room.round !== expectedRound) return;
+
+    room.roundAdvanceTimeout = null;
     if (room.round + 1 >= room.settings.rounds) {
       endGame(room);
     } else {
@@ -1065,6 +1091,17 @@ function endRound(room) {
 }
 
 function endGame(room) {
+  if (!room) return;
+
+  if (room.timer) {
+    clearInterval(room.timer);
+    room.timer = null;
+  }
+  if (room.roundAdvanceTimeout) {
+    clearTimeout(room.roundAdvanceTimeout);
+    room.roundAdvanceTimeout = null;
+  }
+
   room.phase = 'finished';
   room.players.forEach(player => {
     player.ready = false;
@@ -1096,6 +1133,7 @@ function removePlayerFromRoom(socket) {
 
   if (room.players.size === 0) {
     if (room.timer) clearInterval(room.timer);
+    if (room.roundAdvanceTimeout) clearTimeout(room.roundAdvanceTimeout);
     rooms.delete(roomCode);
     console.log(`[ROOM] Destroyed: ${roomCode} (empty)`);
     return;
