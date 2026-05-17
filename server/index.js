@@ -837,9 +837,22 @@ function calcPoints(distKm) {
 
 function normalizeRoomSettings(input) {
   const raw = input && typeof input === 'object' ? input : {};
-  const startingCredits = Math.min(Math.max(parseInt(raw.startingCredits, 10) || STARTING_CREDITS, 100), 2000);
-  const rounds = Math.min(Math.max(parseInt(raw.rounds, 10) || ROUND_COUNT, 1), 10);
-  const roundSeconds = Math.min(Math.max(parseInt(raw.roundSeconds, 10) || ROUND_DURATION, 20), 180);
+  const parsedStartingCredits = Number.parseInt(raw.startingCredits, 10);
+  const parsedRounds = Number.parseInt(raw.rounds, 10);
+  const parsedRoundSeconds = Number.parseInt(raw.roundSeconds, 10);
+
+  const startingCredits = Math.min(
+    Math.max(Number.isFinite(parsedStartingCredits) ? parsedStartingCredits : STARTING_CREDITS, 100),
+    2000
+  );
+  const rounds = Math.min(
+    Math.max(Number.isFinite(parsedRounds) ? parsedRounds : ROUND_COUNT, 1),
+    10
+  );
+  const roundSeconds = Math.min(
+    Math.max(Number.isFinite(parsedRoundSeconds) ? parsedRoundSeconds : ROUND_DURATION, 20),
+    180
+  );
   return { startingCredits, rounds, roundSeconds };
 }
 

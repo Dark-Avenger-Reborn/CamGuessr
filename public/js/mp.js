@@ -171,9 +171,9 @@ const MP = (() => {
     const settingsEl = document.getElementById('lobby-settings');
     if (settingsEl) {
       const cfg = roomState.settings || {};
-      const credits = Number(cfg.startingCredits) || 500;
-      const rounds = Number(cfg.rounds) || roomState.totalRounds || 5;
-      const roundSeconds = Number(cfg.roundSeconds) || 60;
+      const credits = Number.isFinite(Number(cfg.startingCredits)) ? Number(cfg.startingCredits) : 500;
+      const rounds = Number.isFinite(Number(cfg.rounds)) ? Number(cfg.rounds) : (roomState.totalRounds || 5);
+      const roundSeconds = Number.isFinite(Number(cfg.roundSeconds)) ? Number(cfg.roundSeconds) : 60;
       settingsEl.textContent = `Credits: ${credits} · Rounds: ${rounds} · Round Time: ${roundSeconds}s`;
     }
 
@@ -194,9 +194,9 @@ const MP = (() => {
   function createRoom() {
     const nameEl = document.getElementById('create-name-input');
     const name = (nameEl.value || 'AGENT').trim().toUpperCase() || 'AGENT';
-    const creditsVal = parseInt((document.getElementById('create-credits-input')?.value || '500').trim(), 10);
-    const roundsVal = parseInt((document.getElementById('create-rounds-input')?.value || '5').trim(), 10);
-    const roundSecondsVal = parseInt((document.getElementById('create-round-seconds-input')?.value || '60').trim(), 10);
+    const creditsVal = Number.parseInt((document.getElementById('create-credits-input')?.value || '500').trim(), 10);
+    const roundsVal = Number.parseInt((document.getElementById('create-rounds-input')?.value || '5').trim(), 10);
+    const roundSecondsVal = Number.parseInt((document.getElementById('create-round-seconds-input')?.value || '60').trim(), 10);
 
     const settings = {
       startingCredits: Number.isFinite(creditsVal) ? creditsVal : 500,
