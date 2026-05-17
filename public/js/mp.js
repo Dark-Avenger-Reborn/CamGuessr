@@ -191,6 +191,14 @@ const MP = (() => {
     }
   }
 
+  function getMaxMultiplayerScore(roomState = null) {
+    const cfg = roomState?.settings || {};
+    const rounds = Number.isFinite(Number(cfg.rounds))
+      ? Number(cfg.rounds)
+      : (Number.isFinite(Number(roomState?.totalRounds)) ? Number(roomState.totalRounds) : 5);
+    return Math.max(rounds, 1) * 5000;
+  }
+
   function createRoom() {
     const nameEl = document.getElementById('create-name-input');
     const name = (nameEl.value || 'AGENT').trim().toUpperCase() || 'AGENT';
@@ -286,6 +294,11 @@ const MP = (() => {
     const roomCodeEl = document.getElementById('final-room-code');
     if (roomCodeEl) {
       roomCodeEl.textContent = `ROOM CODE: ${roomCode || '------'}`;
+    }
+
+    const maxScoreEl = document.getElementById('final-mp-score-max');
+    if (maxScoreEl) {
+      maxScoreEl.textContent = `/ ${getMaxMultiplayerScore(roomState).toLocaleString('en-US')} POINTS`;
     }
 
     const lbEl = document.getElementById('final-lb');

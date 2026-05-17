@@ -574,6 +574,13 @@ body {
   letter-spacing: 1.5px;
 }
 
+#final-room-code {
+  font-family: var(--title);
+  font-size: 18px;
+  letter-spacing: 5px;
+  color: var(--green);
+}
+
 .score-display {
   font-family: var(--title); font-size: 80px; font-weight: 900;
   color: var(--green); line-height: 1;
