@@ -842,7 +842,7 @@ function normalizeRoomSettings(input) {
   const parsedRoundSeconds = Number.parseInt(raw.roundSeconds, 10);
 
   const startingCredits = Math.min(
-    Math.max(Number.isFinite(parsedStartingCredits) ? parsedStartingCredits : STARTING_CREDITS, 100),
+    Math.max(Number.isFinite(parsedStartingCredits) ? parsedStartingCredits : STARTING_CREDITS, 0),
     2000
   );
   const rounds = Math.min(
