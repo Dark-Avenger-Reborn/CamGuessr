@@ -1,4 +1,4 @@
--# CAMGUESSR
+# CAMGUESSR
 
 > GeoGuessr-style game using public street camera feeds (not continuously live; update frequency varies).
 > Clean, game-first UI with real-time multiplayer via Socket.IO.
