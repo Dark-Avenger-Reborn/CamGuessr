@@ -1,8 +1,23 @@
 # CAMGUESSR
+---
 
-> GeoGuessr-style game using public street camera feeds (not continuously live; update frequency varies).
-> Clean, game-first UI with real-time multiplayer via Socket.IO.
+## Screenshots
 
+A compact gallery to show UI and gameplay (images are scaled for layout):
+
+<p>
+   <img src="images/main_page.png" alt="Main page" width="240" style="border:1px solid #ddd; padding:2px; margin:4px;" />
+   <img src="images/multiplayer_code.png" alt="Multiplayer lobby / room code" width="240" style="border:1px solid #ddd; padding:2px; margin:4px;" />
+   <img src="images/map_open.png" alt="Map open" width="240" style="border:1px solid #ddd; padding:2px; margin:4px;" />
+</p>
+
+<p>
+   <img src="images/game_summary.png" alt="Round summary / scores" width="240" style="border:1px solid #ddd; padding:2px; margin:4px;" />
+   <img src="images/incredible_guess.png" alt="Great guess example" width="240" style="border:1px solid #ddd; padding:2px; margin:4px;" />
+   <img src="images/guess_camera.png" alt="Camera guess view" width="240" style="border:1px solid #ddd; padding:2px; margin:4px;" />
+</p>
+
+## Quick Start
 ---
 
 ## Quick Start
